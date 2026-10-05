@@ -1,0 +1,6 @@
+{
+  "name": "D-mart",
+  "description": "D-mart is Malaysia's online grocery supermarket offering fresh food, pantry staples, and daily essentials with Google Sign-in, live delivery tracking, QR sharing, rider onboarding, and a full-featured Admin Operations Portal.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

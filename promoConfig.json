@@ -1,0 +1,96 @@
+{
+  "announcementBar": {
+    "enabled": true,
+    "textEn": "FREE Delivery on orders over RM 60",
+    "textMs": "Penghantaran PERCUMA pesanan melebihi RM 60",
+    "minOrderAmount": 60,
+    "highlightAmount": "RM 60",
+    "showRiderOrders": true,
+    "showSplashPreview": true
+  },
+  "orderStatusBanner": {
+    "enabled": true,
+    "status": "out_for_delivery",
+    "statusTextEn": "Out for delivery with rider",
+    "statusTextMs": "Sedang dihantar oleh rider",
+    "estimatedDeliveryTime": "15-25 mins",
+    "showLiveMapButton": true
+  },
+  "specialVouchers": [
+    {
+      "code": "DMART10",
+      "titleEn": "RM 10.00 OFF",
+      "titleMs": "POTONGAN RM 10.00",
+      "subtitleEn": "Storewide Supermarket Groceries",
+      "subtitleMs": "Semua Barangan Runcit Pasaraya",
+      "discountType": "fixed",
+      "discountValue": 10,
+      "minSpend": 50,
+      "badgeEn": "🔥 MOST POPULAR",
+      "badgeMs": "🔥 PALING POPULAR",
+      "expiresInTextEn": "Valid today only",
+      "expiresInTextMs": "Sah hari ini sahaja",
+      "colorTheme": "emerald"
+    },
+    {
+      "code": "FREEDEL",
+      "titleEn": "FREE DELIVERY",
+      "titleMs": "HANTAR PERCUMA",
+      "subtitleEn": "Save RM 5.00 on Express Doorstep Delivery",
+      "subtitleMs": "Jimat RM 5.00 Penghantaran Ekspres ke Pintu",
+      "discountType": "free_delivery",
+      "discountValue": 5,
+      "minSpend": 30,
+      "badgeEn": "⚡ ZERO SHIPPING",
+      "badgeMs": "⚡ KOS PENGHANTARAN RM0",
+      "expiresInTextEn": "Ends midnight",
+      "expiresInTextMs": "Tamat tengah malam",
+      "colorTheme": "blue"
+    },
+    {
+      "code": "SEGAR15",
+      "titleEn": "15% OFF PRODUCE",
+      "titleMs": "15% DISKAUN SEGAR",
+      "subtitleEn": "Fresh Cameron Vegetables & Fruits",
+      "subtitleMs": "Sayur & Buah-buahan Segar Cameron",
+      "discountType": "percent",
+      "discountValue": 15,
+      "minSpend": 25,
+      "badgeEn": "🥬 FARM HARVEST",
+      "badgeMs": "🥬 HASIL LADANG SEGAR",
+      "expiresInTextEn": "Daily Fresh Stock",
+      "expiresInTextMs": "Stok Segar Harian",
+      "colorTheme": "amber"
+    },
+    {
+      "code": "JIMAT5",
+      "titleEn": "RM 5.00 OFF",
+      "titleMs": "POTONGAN RM 5.00",
+      "subtitleEn": "Rice, Cooking Oil, Canned & Pantry",
+      "subtitleMs": "Beras, Minyak Masak, Makanan Tin & Dapur",
+      "discountType": "fixed",
+      "discountValue": 5,
+      "minSpend": 35,
+      "badgeEn": "🍚 PANTRY STAPLES",
+      "badgeMs": "🍚 JIMAT RENCAH DAPUR",
+      "expiresInTextEn": "Limited 100 claims",
+      "expiresInTextMs": "Terhad 100 penebusan",
+      "colorTheme": "rose"
+    },
+    {
+      "code": "NEWUSER",
+      "titleEn": "RM 12.00 OFF",
+      "titleMs": "POTONGAN RM 12.00",
+      "subtitleEn": "Google Account Welcome Special Gift",
+      "subtitleMs": "Hadiah Istimewa Aluan Akaun Google",
+      "discountType": "fixed",
+      "discountValue": 12,
+      "minSpend": 40,
+      "badgeEn": "🎁 WELCOME BONUS",
+      "badgeMs": "🎁 BONUS PENGGUNA BARU",
+      "expiresInTextEn": "First order only",
+      "expiresInTextMs": "Pesanan pertama sahaja",
+      "colorTheme": "purple"
+    }
+  ]
+}

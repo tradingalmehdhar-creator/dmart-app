@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Customer Users collection
+    match /dmart_users/{userId} {
+      allow read, write: if true; // Allows demo & guest browsing with full sync, or isOwner(userId)
+    }
+
+    // Merchant Partners / Suppliers
+    match /dmart_suppliers/{supplierId} {
+      allow read, write: if true; // Managed by store admins & interactive UI controls
+    }
+
+    // Orders Collection
+    match /dmart_orders/{orderId} {
+      allow read, write: if true; // Customer order placement & Rider delivery OTP verification
+    }
+
+    // Riders Collection
+    match /dmart_riders/{riderId} {
+      allow read, write: if true; // Rider registration, profile edits, and default landing preferences
+    }
+
+    // Storefront Banners Collections (Real-time client listener & Admin management)
+    match /storefront_banners/{bannerId} {
+      allow read, write: if true;
+    }
+    match /banners/{bannerId} {
+      allow read, write: if true;
+    }
+
+    // Payout Requests Collection (Delivery Riders Daily Payouts & Admin Audit)
+    match /payout_requests/{payoutId} {
+      allow read, write: if true;
+    }
+
+    // Rider Ledgers Collection (Real-time Rider Financial Accounts & Statements)
+    match /rider_ledgers/{ledgerId} {
+      allow read, write: if true;
+    }
+
+    // System Settings & Global Configurations (PDF & Statement Settings)
+    match /system_settings/{settingId} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* Ensure zero horizontal page scrolling or overflow on mobile viewports */
+html, body, #root {
+  max-width: 100vw;
+  width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide,
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.6s infinite ease-in-out;
+}
+
+@keyframes pointsPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.65);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.15);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(-50%, -8px) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -14px) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(0.75);
+  }
+}
+
+@keyframes badgeGlowPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 14px 2px rgba(245, 158, 11, 0.55);
+  }
+}
+
+.animate-points-pop {
+  animation: pointsPop 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-badge-glow {
+  animation: badgeGlowPulse 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
