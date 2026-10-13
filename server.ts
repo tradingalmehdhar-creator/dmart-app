@@ -47,6 +47,10 @@ async function startServer() {
 
   app.use(express.json({ limit: "10mb" }));
 
+  // Serve public directory statically (PWA manifest, icons, service worker, privacy page)
+  const publicDir = path.join(process.cwd(), "public");
+  app.use(express.static(publicDir));
+
   // Ensure uploads directory exists and is served statically
   const uploadsDir = path.join(process.cwd(), "public", "uploads");
   if (!fs.existsSync(uploadsDir)) {

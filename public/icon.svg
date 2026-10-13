@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="dmartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a3e635"/>
+      <stop offset="100%" stop-color="#84cc16"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#022c22" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#dmartGrad)"/>
+
+  <!-- Inner subtle border -->
+  <rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+
+  <!-- Emblem Group with Shadow -->
+  <g filter="url(#shadow)">
+    <!-- Main D shape -->
+    <path d="M 148 108 L 272 108 C 360 108 424 168 424 256 C 424 344 360 404 272 404 L 148 404 Z M 224 184 L 224 328 L 268 328 C 316 328 348 296 348 256 C 348 216 316 184 268 184 Z" fill="#ffffff"/>
+
+    <!-- Fresh Grocery Leaf Motif at top-right of D -->
+    <path d="M 376 96 C 376 96 420 92 432 128 C 440 152 424 176 400 176 C 376 176 360 148 376 96 Z" fill="url(#leafGrad)"/>
+    <path d="M 344 124 C 344 124 320 104 336 80 C 352 64 372 72 376 96 C 364 116 352 124 344 124 Z" fill="#84cc16" opacity="0.9"/>
+  </g>
+</svg>

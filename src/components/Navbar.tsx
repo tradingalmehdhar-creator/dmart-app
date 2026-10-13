@@ -3,6 +3,7 @@ import { ShoppingCart, Search, Globe, UserCheck, User, Store, Sparkles, Clock, P
 import { Language, UserProfile, DeliveryAddress, DeliveryPartnerApplication, PromoConfig, StorefrontCopySettings } from '../types';
 import { translations } from '../data/translations';
 import { getLoyaltyTier } from '../utils/loyaltyTiers';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   language: Language;
@@ -127,6 +128,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Desktop-only secondary badges and quick controls */}
             <div className="hidden md:flex items-center gap-2 text-emerald-100 shrink-0 ml-auto justify-end">
               <span className="whitespace-nowrap text-[11px]">{t.freshGuarantee}</span>
+              <PWAInstallButton language={language} variant="compact" />
               {onReplaySplash && (
                 <button
                   id="top-banner-splash-preview-btn"

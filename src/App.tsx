@@ -104,6 +104,7 @@ import { AdminAuthModal } from './components/AdminAuthModal';
 import { StorefrontBanners } from './components/StorefrontBanners';
 import { LoyaltyPointsModal } from './components/LoyaltyPointsModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { playNotificationChime } from './utils/audioChime';
 import {
   setupFcmForegroundListener,
@@ -2501,6 +2502,9 @@ export default function App() {
         onClose={() => setIsPrivacyPolicyOpen(false)}
         language={language}
       />
+
+      {/* PWA Offline Mode Network Indicator */}
+      <OfflineIndicator language={language} />
     </div>
   );
 }
