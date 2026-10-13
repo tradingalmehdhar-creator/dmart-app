@@ -7,9 +7,11 @@ import {
   FleetRider,
   RiderWalletTransaction,
   PdfConfigSettings,
-  DEFAULT_PDF_CONFIG
+  DEFAULT_PDF_CONFIG,
+  Order
 } from '../types';
 import { subscribeToPdfConfig } from '../firebase_config';
+import { generateOrderReceiptPdf } from './pdfReceiptExport';
 
 // Dynamic global PDF Configuration cache
 let livePdfConfig: PdfConfigSettings = (() => {
@@ -45,13 +47,62 @@ export function getGlobalPdfConfig(): PdfConfigSettings {
     try {
       const saved = localStorage.getItem('dmart_pdf_config');
       if (saved) {
-        livePdfConfig = JSON.parse(saved);
+        livePdfConfig = { ...DEFAULT_PDF_CONFIG, ...JSON.parse(saved) };
         return livePdfConfig;
       }
     } catch {}
     return DEFAULT_PDF_CONFIG;
   }
-  return livePdfConfig;
+  return { ...DEFAULT_PDF_CONFIG, ...livePdfConfig };
+}
+
+/**
+ * Draws the official D-mart company logo emblem
+ * Position can be 'left' | 'center' | 'right' | 'hidden'
+ */
+export function drawCompanyLogo(
+  doc: jsPDF,
+  position: 'left' | 'center' | 'right' | 'hidden',
+  headerY: number,
+  pageWidth: number,
+  pagePadding: number
+): { logoWidth: number; logoHeight: number; logoX: number } | null {
+  if (position === 'hidden') return null;
+
+  const logoWidth = 14;
+  const logoHeight = 14;
+  let logoX = pagePadding;
+
+  if (position === 'center') {
+    logoX = (pageWidth - logoWidth) / 2;
+  } else if (position === 'right') {
+    logoX = pageWidth - pagePadding - logoWidth;
+  } else {
+    logoX = pagePadding;
+  }
+
+  const logoY = headerY;
+
+  // Background badge
+  doc.setFillColor(16, 185, 129); // emerald-500
+  doc.roundedRect(logoX, logoY, logoWidth, logoHeight, 2.5, 2.5, 'F');
+
+  // Inner border
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(logoX + 0.8, logoY + 0.8, logoWidth - 1.6, logoHeight - 1.6, 1.8, 1.8, 'S');
+
+  // Letter "D" + "MART"
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('D', logoX + logoWidth / 2, logoY + 7.2, { align: 'center' });
+
+  doc.setFontSize(4.2);
+  doc.setTextColor(236, 253, 245);
+  doc.text('MART', logoX + logoWidth / 2, logoY + 11.2, { align: 'center' });
+
+  return { logoWidth, logoHeight, logoX };
 }
 
 /**
@@ -68,6 +119,14 @@ export function exportRiderCredentialsPDF(
     format: 'a4',
   });
 
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const pagePadding = cfg.pagePadding ?? 14;
+  const topMargin = cfg.topMargin ?? 12;
+  const bottomMargin = cfg.bottomMargin ?? 14;
+  const sectionSpacing = cfg.sectionSpacing ?? 6;
+  const contentWidth = pageWidth - pagePadding * 2;
+
   // Emerald Theme Colors
   const primaryColor = [6, 78, 59]; // #064e3b
   const accentColor = [16, 185, 129]; // #10b981
@@ -75,29 +134,51 @@ export function exportRiderCredentialsPDF(
   const lightGray = [243, 244, 246];
 
   // Header Banner
+  const bannerHeight = Math.max(36, topMargin * 2 + 10);
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(0, 0, 210, 38, 'F');
+  doc.rect(0, 0, pageWidth, bannerHeight, 'F');
 
-  // Title
+  const logoInfo = (cfg.showCompanyLogo && cfg.logoPosition !== 'hidden')
+    ? drawCompanyLogo(doc, cfg.logoPosition, 6, pageWidth, pagePadding)
+    : null;
+
+  let textX = pagePadding;
+  if (logoInfo && cfg.logoPosition === 'left') {
+    textX = pagePadding + logoInfo.logoWidth + 3.5;
+  }
+
+  // Title & Subtitle
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(cfg.companyName.toUpperCase(), 14, 17);
-
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(cfg.headerSubtitle, 14, 24);
+  doc.setFontSize(17);
+  doc.text(cfg.companyName.toUpperCase(), textX, 15);
 
   doc.setFontSize(8);
-  doc.setTextColor(167, 243, 208);
-  doc.text(`SSM REG: ${cfg.ssmRegistrationNumber} • OFFICIAL DISPATCH FLEET`, 14, 31);
+  doc.setFont('helvetica', 'normal');
+  doc.text(cfg.headerSubtitle, textX, 22);
+
+  if (cfg.customHeaderText) {
+    doc.text(cfg.customHeaderText, textX, 27);
+  }
+
+  if (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(167, 243, 208);
+    doc.text(`SSM REG: ${cfg.ssmRegistrationNumber} • OFFICIAL DISPATCH FLEET`, textX, cfg.customHeaderText ? 32 : 27);
+  }
 
   // Reference & Date Box
-  doc.setFontSize(9);
-  doc.text(`Ref: ${rider.referenceNo}`, 145, 18);
-  doc.text(`Archived: ${new Date().toLocaleDateString('en-MY', { dateStyle: 'medium' })}`, 145, 26);
+  const metaRightX = (cfg.logoPosition === 'right' && logoInfo)
+    ? pageWidth - pagePadding - logoInfo.logoWidth - 4
+    : pageWidth - pagePadding;
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Ref: ${rider.referenceNo}`, metaRightX, 16, { align: 'right' });
+  doc.text(`Archived: ${new Date().toLocaleDateString('en-MY', { dateStyle: 'medium' })}`, metaRightX, 23, { align: 'right' });
 
   // Verification Badge
+  let currentY = bannerHeight + sectionSpacing;
   const statusUpper = (rider.status || 'PENDING').toUpperCase();
   if (statusUpper === 'APPROVED') {
     doc.setFillColor(16, 185, 129);
@@ -106,122 +187,139 @@ export function exportRiderCredentialsPDF(
   } else {
     doc.setFillColor(239, 68, 68);
   }
-  doc.roundedRect(14, 46, 50, 8, 2, 2, 'F');
+  doc.roundedRect(pagePadding, currentY, 50, 8, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(`STATUS: ${statusUpper}`, 18, 51.5);
+  doc.text(`STATUS: ${statusUpper}`, pagePadding + 4, currentY + 5.5);
+
+  currentY += 8 + sectionSpacing;
 
   // Section: Personal Information
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('1. DRIVER PROFILE & IDENTITY', 14, 66);
+  doc.text('1. DRIVER PROFILE & IDENTITY', pagePadding, currentY + 4);
   doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
   doc.setLineWidth(0.5);
-  doc.line(14, 68, 196, 68);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
 
+  currentY += 8;
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('Full Name (Nama Penuh):', 14, 76);
+  doc.text('Full Name (Nama Penuh):', pagePadding, currentY + 6);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.fullName, 75, 76);
+  doc.text(rider.fullName, pagePadding + 65, currentY + 6);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('NRIC / ID Number (No. KP):', 14, 84);
+  doc.text('NRIC / ID Number (No. KP):', pagePadding, currentY + 14);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.idNumber, 75, 84);
+  doc.text(rider.idNumber, pagePadding + 65, currentY + 14);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Contact Phone (No. Telefon):', 14, 92);
+  doc.text('Contact Phone (No. Telefon):', pagePadding, currentY + 22);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.phoneNumber, 75, 92);
+  doc.text(rider.phoneNumber, pagePadding + 65, currentY + 22);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Nationality (Warganegara):', 14, 100);
+  doc.text('Nationality (Warganegara):', pagePadding, currentY + 30);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.nationality || 'Malaysian (Warganegara)', 75, 100);
+  doc.text(rider.nationality || 'Malaysian (Warganegara)', pagePadding + 65, currentY + 30);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Registered Residential Address:', 14, 108);
+  doc.text('Registered Residential Address:', pagePadding, currentY + 38);
   doc.setFont('helvetica', 'normal');
-  const splitAddress = doc.splitTextToSize(rider.address, 120);
-  doc.text(splitAddress, 75, 108);
+  const splitAddress = doc.splitTextToSize(rider.address, 115);
+  doc.text(splitAddress, pagePadding + 65, currentY + 38);
 
-  // Section: Vehicle & Transport
-  const vehicleY = 126;
+  currentY += 46 + (splitAddress.length * 4) + sectionSpacing;
+
+  // Section: Vehicle & Driving License
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('2. VEHICLE & FLEET REGISTRATION', 14, vehicleY);
-  doc.line(14, vehicleY + 2, 196, vehicleY + 2);
+  doc.text('2. VEHICLE ASSET & DRIVING LICENSE CREDENTIALS', pagePadding, currentY + 4);
+  doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
+  doc.setLineWidth(0.5);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
 
+  currentY += 8;
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('Assigned Vehicle Category:', 14, vehicleY + 10);
+  doc.text('Vehicle Registration Plate:', pagePadding, currentY + 6);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.vehicleType === 'car' ? 'Passenger Car (Kereta)' : 'Motorcycle (Motosikal)', 75, vehicleY + 10);
+  doc.text(rider.plateNumber, pagePadding + 65, currentY + 6);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Vehicle Plate / Registration No:', 14, vehicleY + 18);
+  doc.text('Vehicle Transport Type:', pagePadding, currentY + 14);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.plateNumber, 75, vehicleY + 18);
-
-  // Section: Driving License & Legal Compliance
-  const licenseY = vehicleY + 34;
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.text('3. DRIVING LICENSE & DOCUMENT ARCHIVING', 14, licenseY);
-  doc.line(14, licenseY + 2, 196, licenseY + 2);
-
-  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Uploaded License Document:', 14, licenseY + 10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(rider.licenseDocName || 'CDL_Driver_License_Front_Back.pdf', 75, licenseY + 10);
+  doc.text(rider.vehicleType.toUpperCase(), pagePadding + 65, currentY + 14);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Submission Timestamp:', 14, licenseY + 18);
+  doc.text('Driving License Number:', pagePadding, currentY + 22);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.submittedAt, 75, licenseY + 18);
+  doc.text(rider.licenseNumber || rider.idNumber, pagePadding + 65, currentY + 22);
+
+  currentY += 28 + sectionSpacing;
 
   // License File Verification Box
   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.roundedRect(14, licenseY + 26, 182, 38, 2, 2, 'F');
+  doc.roundedRect(pagePadding, currentY, contentWidth, 32, 2, 2, 'F');
   doc.setDrawColor(209, 213, 219);
-  doc.roundedRect(14, licenseY + 26, 182, 38, 2, 2, 'S');
+  doc.roundedRect(pagePadding, currentY, contentWidth, 32, 2, 2, 'S');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('JPJ & APAD COMPLIANCE VERIFICATION RECORD', 20, licenseY + 34);
+  doc.text('JPJ & APAD COMPLIANCE VERIFICATION RECORD', pagePadding + 6, currentY + 7);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('• Valid Competent Driving License (CDL) verified against Road Transport Department (JPJ).', 20, licenseY + 41);
-  doc.text('• Clean traffic record and background security clearance validated for delivery services.', 20, licenseY + 47);
-  doc.text('• Authorized for D-mart cold-chain delivery operations within Klang Valley service radius.', 20, licenseY + 53);
+  doc.text('• Valid Competent Driving License (CDL) verified against Road Transport Department (JPJ).', pagePadding + 6, currentY + 14);
+  doc.text('• Clean traffic record and background security clearance validated for delivery services.', pagePadding + 6, currentY + 20);
+  doc.text('• Authorized for D-mart cold-chain delivery operations within Klang Valley service radius.', pagePadding + 6, currentY + 26);
 
   // Footer & Official Stamp
+  const footerY = pageHeight - bottomMargin;
   doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setLineWidth(1);
-  doc.line(14, 255, 196, 255);
+  doc.setLineWidth(0.6);
+  doc.line(pagePadding, footerY - 14, pageWidth - pagePadding, footerY - 14);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(`${cfg.companyName.toUpperCase()} • SSM: ${cfg.ssmRegistrationNumber}`, 14, 262);
+  if (cfg.certificateText) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(cfg.certificateText, pagePadding, footerY - 9);
+  }
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(107, 114, 128);
-  doc.text(cfg.footerDisclaimer, 14, 267);
-  doc.text(`Official Address: ${cfg.officialAddress} • Support: ${cfg.supportContact}`, 14, 272);
+  if (cfg.showSignatureNote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(75, 85, 99);
+    doc.text(cfg.signatureNoteText, pagePadding, footerY - 4.5);
+  }
+
+  if (cfg.showLegalDisclaimer) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(cfg.footerDisclaimer, pagePadding, footerY);
+  }
+
+  if (cfg.showSsmRegistration) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(`SSM: ${cfg.ssmRegistrationNumber} • ${cfg.officialAddress}`, pagePadding, footerY + 4);
+  }
+
+  if (cfg.customFooterText) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(cfg.customFooterText, pageWidth - pagePadding, footerY + 4, { align: 'right' });
+  }
 
   // Save PDF
   const safeName = rider.fullName.replace(/[^a-zA-Z0-9]/g, '_');
@@ -242,61 +340,96 @@ export function exportRiderPayoutSummaryPDF(
     format: 'a4',
   });
 
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const pagePadding = cfg.pagePadding ?? 14;
+  const topMargin = cfg.topMargin ?? 12;
+  const bottomMargin = cfg.bottomMargin ?? 14;
+  const sectionSpacing = cfg.sectionSpacing ?? 6;
+  const contentWidth = pageWidth - pagePadding * 2;
+
   const primaryColor = [6, 78, 59];
   const darkGray = [31, 41, 55];
 
   // Header Banner
+  const bannerHeight = Math.max(36, topMargin * 2 + 10);
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(0, 0, 210, 36, 'F');
+  doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+  const logoInfo = (cfg.showCompanyLogo && cfg.logoPosition !== 'hidden')
+    ? drawCompanyLogo(doc, cfg.logoPosition, 6, pageWidth, pagePadding)
+    : null;
+
+  let textX = pagePadding;
+  if (logoInfo && cfg.logoPosition === 'left') {
+    textX = pagePadding + logoInfo.logoWidth + 3.5;
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(cfg.companyName.toUpperCase(), 14, 16);
+  doc.setFontSize(17);
+  doc.text(cfg.companyName.toUpperCase(), textX, 15);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text(cfg.headerSubtitle, textX, 22);
+
+  if (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(167, 243, 208);
+    doc.text(`SSM REG: ${cfg.ssmRegistrationNumber} • OFFICIAL DISPATCH FLEET`, textX, 27);
+  }
+
+  const metaRightX = (cfg.logoPosition === 'right' && logoInfo)
+    ? pageWidth - pagePadding - logoInfo.logoWidth - 4
+    : pageWidth - pagePadding;
 
   doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`OFFICIAL RIDER DISPATCH PAYOUT STATEMENT • SSM: ${cfg.ssmRegistrationNumber}`, 14, 24);
-
-  doc.setFontSize(9);
-  doc.text(`Period: ${payout.period}`, 130, 16);
-  doc.text(`Date: ${new Date().toLocaleDateString('en-MY')}`, 130, 24);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Period: ${payout.period}`, metaRightX, 16, { align: 'right' });
+  doc.text(`Date: ${new Date().toLocaleDateString('en-MY')}`, metaRightX, 23, { align: 'right' });
 
   // Rider Details Box
+  let y = bannerHeight + sectionSpacing;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(pagePadding, y, contentWidth, 32, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(pagePadding, y, contentWidth, 32, 2, 2, 'S');
+
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('Rider Name:', 14, 48);
+  doc.text('Rider Name:', pagePadding + 6, y + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text(payout.riderName, 55, 48);
+  doc.text(payout.riderName, pagePadding + 40, y + 8);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Phone:', 14, 55);
+  doc.text('Phone:', pagePadding + 6, y + 15);
   doc.setFont('helvetica', 'normal');
-  doc.text(payout.riderPhone, 55, 55);
+  doc.text(payout.riderPhone, pagePadding + 40, y + 15);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Vehicle / Plate:', 14, 62);
+  doc.text('Vehicle / Plate:', pagePadding + 6, y + 22);
   doc.setFont('helvetica', 'normal');
-  doc.text(payout.vehiclePlate, 55, 62);
+  doc.text(payout.vehiclePlate, pagePadding + 40, y + 22);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Bank & Account:', 14, 69);
+  doc.text('Bank & Account:', pagePadding + 6, y + 29);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${payout.bankName} - ${payout.accountNumber}`, 55, 69);
+  doc.text(`${payout.bankName} - ${payout.accountNumber}`, pagePadding + 40, y + 29);
 
   // Table of Earnings
-  let y = 84;
+  y += 32 + sectionSpacing;
   doc.setFillColor(243, 244, 246);
-  doc.rect(14, y, 182, 10, 'F');
+  doc.rect(pagePadding, y, contentWidth, 9, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text('Item Description', 18, y + 6.5);
-  doc.text('Count / Details', 110, y + 6.5);
-  doc.text('Amount (MYR)', 160, y + 6.5);
+  doc.text('Item Description', pagePadding + 4, y + 6);
+  doc.text('Count / Details', pagePadding + 95, y + 6);
+  doc.text('Amount (MYR)', pageWidth - pagePadding - 4, y + 6, { align: 'right' });
 
-  y += 10;
+  y += 9;
   const rows = [
     { desc: 'Completed Order Deliveries (Base Rate)', detail: `${payout.totalDeliveries} trips`, amount: `RM ${payout.basePay.toFixed(2)}` },
     { desc: 'Customer Tips & Gratuities (100% Payout)', detail: 'Direct to rider', amount: `RM ${payout.tipsCollected.toFixed(2)}` },
@@ -307,32 +440,71 @@ export function exportRiderPayoutSummaryPDF(
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   rows.forEach((r) => {
     y += 8;
-    doc.text(r.desc, 18, y);
-    doc.text(r.detail, 110, y);
-    doc.text(r.amount, 160, y);
+    doc.text(r.desc, pagePadding + 4, y);
+    doc.text(r.detail, pagePadding + 95, y);
+    doc.text(r.amount, pageWidth - pagePadding - 4, y, { align: 'right' });
     doc.setDrawColor(229, 231, 235);
-    doc.line(14, y + 3, 196, y + 3);
+    doc.line(pagePadding, y + 3, pageWidth - pagePadding, y + 3);
   });
 
   // Total Row
-  y += 12;
+  y += 10 + sectionSpacing;
   doc.setFillColor(6, 78, 59);
-  doc.roundedRect(14, y, 182, 14, 2, 2, 'F');
+  doc.roundedRect(pagePadding, y, contentWidth, 12, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('TOTAL NET PAYOUT DISBURSED:', 20, y + 9);
-  doc.text(`RM ${payout.totalPayout.toFixed(2)}`, 155, y + 9);
+  doc.setFontSize(11);
+  doc.text('TOTAL NET PAYOUT DISBURSED:', pagePadding + 6, y + 8);
+  doc.text(`RM ${payout.totalPayout.toFixed(2)}`, pageWidth - pagePadding - 6, y + 8, { align: 'right' });
 
   // Status Note
-  y += 24;
-  doc.setFontSize(9);
+  y += 16 + sectionSpacing;
+  doc.setFontSize(8.5);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Disbursement Status: ${payout.status.toUpperCase()}`, 14, y);
+  doc.text(`Disbursement Status: ${payout.status.toUpperCase()}`, pagePadding, y);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(107, 114, 128);
-  doc.text('Funds transferred via D-mart Maybank Corporate Bulk Gateway to the designated beneficiary account.', 14, y + 6);
+  doc.text('Funds transferred via D-mart Maybank Corporate Bulk Gateway to the designated beneficiary account.', pagePadding, y + 5);
+
+  // Footer
+  const footerY = pageHeight - bottomMargin;
+  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setLineWidth(0.5);
+  doc.line(pagePadding, footerY - 14, pageWidth - pagePadding, footerY - 14);
+
+  if (cfg.certificateText) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(cfg.certificateText, pagePadding, footerY - 9);
+  }
+
+  if (cfg.showSignatureNote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(75, 85, 99);
+    doc.text(cfg.signatureNoteText, pagePadding, footerY - 4.5);
+  }
+
+  if (cfg.showLegalDisclaimer) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(cfg.footerDisclaimer, pagePadding, footerY);
+  }
+
+  if (cfg.showSsmRegistration) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(`SSM: ${cfg.ssmRegistrationNumber} • Official Address: ${cfg.officialAddress}`, pagePadding, footerY + 4);
+  }
+
+  if (cfg.customFooterText) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(cfg.customFooterText, pageWidth - pagePadding, footerY + 4, { align: 'right' });
+  }
 
   // Save
   const safeName = payout.riderName.replace(/[^a-zA-Z0-9]/g, '_');
@@ -401,85 +573,134 @@ export function exportBusinessDocumentPDF(
     format: 'a4',
   });
 
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const pagePadding = cfg.pagePadding ?? 14;
+  const topMargin = cfg.topMargin ?? 12;
+  const bottomMargin = cfg.bottomMargin ?? 14;
+  const sectionSpacing = cfg.sectionSpacing ?? 6;
+  const contentWidth = pageWidth - pagePadding * 2;
+
   const primaryColor = [6, 78, 59];
   const darkGray = [31, 41, 55];
 
   // Header
+  const bannerHeight = Math.max(34, topMargin * 2 + 10);
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(0, 0, 210, 34, 'F');
+  doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+  const logoInfo = (cfg.showCompanyLogo && cfg.logoPosition !== 'hidden')
+    ? drawCompanyLogo(doc, cfg.logoPosition, 6, pageWidth, pagePadding)
+    : null;
+
+  let textX = pagePadding;
+  if (logoInfo && cfg.logoPosition === 'left') {
+    textX = pagePadding + logoInfo.logoWidth + 3.5;
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(cfg.companyName.toUpperCase(), 14, 16);
-  doc.setFontSize(8.5);
+  doc.setFontSize(17);
+  doc.text(cfg.companyName.toUpperCase(), textX, 15);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(`CORPORATE LEGAL, LICENSING & REGULATORY VAULT RECORD • SSM: ${cfg.ssmRegistrationNumber}`, 14, 24);
+  doc.text('CORPORATE LEGAL, LICENSING & REGULATORY VAULT RECORD', textX, 22);
+
+  if (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(167, 243, 208);
+    doc.text(`SSM: ${cfg.ssmRegistrationNumber} • ${cfg.supportContact}`, textX, 27);
+  }
 
   // Document Details
+  let currentY = bannerHeight + sectionSpacing;
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.text(docItem.title, 14, 48);
+  doc.text(docItem.title, pagePadding, currentY + 4);
 
   doc.setDrawColor(16, 185, 129);
   doc.setLineWidth(0.5);
-  doc.line(14, 52, 196, 52);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
 
-  doc.setFontSize(10);
+  currentY += 10;
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('Document Type:', 14, 62);
+  doc.text('Document Type:', pagePadding, currentY + 6);
   doc.setFont('helvetica', 'normal');
-  doc.text(docItem.documentType.toUpperCase().replace(/_/g, ' '), 65, 62);
+  doc.text(docItem.documentType.toUpperCase().replace(/_/g, ' '), pagePadding + 65, currentY + 6);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Official Registration / License No:', 14, 70);
+  doc.text('Official Registration / License No:', pagePadding, currentY + 14);
   doc.setFont('helvetica', 'normal');
-  doc.text(docItem.regNumber, 65, 70);
+  doc.text(docItem.regNumber, pagePadding + 65, currentY + 14);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Issuing Authority:', 14, 78);
+  doc.text('Issuing Authority:', pagePadding, currentY + 22);
   doc.setFont('helvetica', 'normal');
-  doc.text(docItem.issuedBy, 65, 78);
+  doc.text(docItem.issuedBy, pagePadding + 65, currentY + 22);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Effective Issue Date:', 14, 86);
+  doc.text('Effective Issue Date:', pagePadding, currentY + 30);
   doc.setFont('helvetica', 'normal');
-  doc.text(docItem.issueDate, 65, 86);
+  doc.text(docItem.issueDate, pagePadding + 65, currentY + 30);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Validity Expiration Date:', 14, 94);
+  doc.text('Validity Expiration Date:', pagePadding, currentY + 38);
   doc.setFont('helvetica', 'normal');
-  doc.text(docItem.expiryDate, 65, 94);
+  doc.text(docItem.expiryDate, pagePadding + 65, currentY + 38);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Regulatory Status:', 14, 102);
+  doc.text('Regulatory Status:', pagePadding, currentY + 46);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(16, 185, 129);
-  doc.text(docItem.status.toUpperCase(), 65, 102);
+  doc.text(docItem.status.toUpperCase(), pagePadding + 65, currentY + 46);
 
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.setFont('helvetica', 'bold');
-  doc.text('Vault Operational Scope:', 14, 110);
+  doc.text('Vault Operational Scope:', pagePadding, currentY + 54);
   doc.setFont('helvetica', 'normal');
-  const splitNotes = doc.splitTextToSize(docItem.notes, 130);
-  doc.text(splitNotes, 65, 110);
+  const splitNotes = doc.splitTextToSize(docItem.notes, contentWidth - 70);
+  doc.text(splitNotes, pagePadding + 65, currentY + 54);
 
   // Footer Disclaimer
+  const footerY = pageHeight - bottomMargin;
   doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setLineWidth(0.5);
-  doc.line(14, 260, 196, 260);
+  doc.line(pagePadding, footerY - 14, pageWidth - pagePadding, footerY - 14);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(cfg.certificateText, 14, 266);
+  if (cfg.certificateText) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(cfg.certificateText, pagePadding, footerY - 9);
+  }
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(107, 114, 128);
-  doc.text(cfg.footerDisclaimer, 14, 271);
-  doc.text(`Official Address: ${cfg.officialAddress} • ${cfg.supportContact}`, 14, 276);
+  if (cfg.showSignatureNote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(75, 85, 99);
+    doc.text(cfg.signatureNoteText, pagePadding, footerY - 4.5);
+  }
+
+  if (cfg.showLegalDisclaimer) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(cfg.footerDisclaimer, pagePadding, footerY);
+  }
+
+  if (cfg.showSsmRegistration) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(`SSM: ${cfg.ssmRegistrationNumber} • Official Address: ${cfg.officialAddress}`, pagePadding, footerY + 4);
+  }
+
+  if (cfg.customFooterText) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(cfg.customFooterText, pageWidth - pagePadding, footerY + 4, { align: 'right' });
+  }
 
   // Save
   const safeName = docItem.title.replace(/[^a-zA-Z0-9]/g, '_');
@@ -771,50 +992,82 @@ export function exportDailyClosurePDF(
     format: 'a4',
   });
 
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const pagePadding = cfg.pagePadding ?? 14;
+  const topMargin = cfg.topMargin ?? 12;
+  const bottomMargin = cfg.bottomMargin ?? 14;
+  const sectionSpacing = cfg.sectionSpacing ?? 6;
+  const contentWidth = pageWidth - pagePadding * 2;
+
   const primaryColor = [6, 78, 59]; // #064e3b
   const accentColor = [16, 185, 129]; // #10b981
   const darkGray = [31, 41, 55];
   const lightGray = [243, 244, 246];
 
   // Header Banner
+  const bannerHeight = Math.max(36, topMargin * 2 + 10);
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(0, 0, 210, 36, 'F');
+  doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+  const logoInfo = (cfg.showCompanyLogo && cfg.logoPosition !== 'hidden')
+    ? drawCompanyLogo(doc, cfg.logoPosition, 6, pageWidth, pagePadding)
+    : null;
+
+  let textX = pagePadding;
+  if (logoInfo && cfg.logoPosition === 'left') {
+    textX = pagePadding + logoInfo.logoWidth + 3.5;
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(cfg.companyName.toUpperCase(), 14, 16);
+  doc.setFontSize(17);
+  doc.text(cfg.companyName.toUpperCase(), textX, 15);
 
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('DAILY CASHIER & STORE CLOSURE AUDIT REPORT (Z-REPORT SLIP)', 14, 23);
-  doc.text(`SSM: ${cfg.ssmRegistrationNumber} • ${cfg.officialAddress.slice(0, 60)}`, 14, 29);
+  doc.text('DAILY CASHIER & STORE CLOSURE AUDIT REPORT (Z-REPORT SLIP)', textX, 22);
+
+  if (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(167, 243, 208);
+    doc.text(`SSM: ${cfg.ssmRegistrationNumber} • ${cfg.officialAddress.slice(0, 55)}`, textX, 27);
+  }
 
   // Meta Right Box
-  doc.setFontSize(9);
-  doc.text(`Ref ID: ${closure.id}`, 145, 16);
-  doc.text(`Date: ${closure.closureDate}`, 145, 22);
-  doc.text(`Terminal: ${closure.registerId || 'POS-01 (Main)'}`, 145, 28);
+  const metaRightX = (cfg.logoPosition === 'right' && logoInfo)
+    ? pageWidth - pagePadding - logoInfo.logoWidth - 4
+    : pageWidth - pagePadding;
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Ref ID: ${closure.id}`, metaRightX, 15, { align: 'right' });
+  doc.text(`Date: ${closure.closureDate}`, metaRightX, 21, { align: 'right' });
+  doc.text(`Terminal: ${closure.registerId || 'POS-01 (Main)'}`, metaRightX, 27, { align: 'right' });
 
   // Status Badge
+  let currentY = bannerHeight + sectionSpacing;
   const isBalanced = Math.abs(closure.variance) < 0.01;
   doc.setFillColor(isBalanced ? 16 : 239, isBalanced ? 185 : 68, isBalanced ? 129 : 68);
-  doc.roundedRect(14, 42, 60, 7.5, 2, 2, 'F');
+  doc.roundedRect(pagePadding, currentY, 60, 7.5, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text(`AUDIT STATUS: ${isBalanced ? 'BALANCED' : 'FLAGGED DISCREPANCY'}`, 17, 47);
+  doc.text(`AUDIT STATUS: ${isBalanced ? 'BALANCED' : 'FLAGGED DISCREPANCY'}`, pagePadding + 3, currentY + 5);
+
+  currentY += 7.5 + sectionSpacing;
 
   // Section 1: Revenue Summary
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('1. DAILY REVENUE & PAYMENT CHANNELS', 14, 58);
+  doc.text('1. DAILY REVENUE & PAYMENT CHANNELS', pagePadding, currentY + 4);
   doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
   doc.setLineWidth(0.4);
-  doc.line(14, 61, 196, 61);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
 
-  doc.setFontSize(9.5);
+  currentY += 9;
+  doc.setFontSize(9);
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
 
   const revRows = [
@@ -829,31 +1082,30 @@ export function exportDailyClosurePDF(
     ['Net Daily Profit:', `RM ${(closure.netProfit || (closure.netRevenue - (closure.cogs || closure.totalGrossSales * 0.65))).toFixed(2)}`],
   ];
 
-  let y = 68;
   revRows.forEach(([label, val], idx) => {
     const isHighlight = idx === 5 || idx === 8;
     if (isHighlight) {
       doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-      doc.rect(14, y - 4, 182, 6.5, 'F');
+      doc.rect(pagePadding, currentY - 3.5, contentWidth, 6, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     } else {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
     }
-    doc.text(label, 18, y);
-    doc.text(val, 190, y, { align: 'right' });
-    y += 7.5;
+    doc.text(label, pagePadding + 4, currentY);
+    doc.text(val, pageWidth - pagePadding - 4, currentY, { align: 'right' });
+    currentY += 6.5;
   });
 
   // Section 2: Cash Drawer Reconciliation
-  y += 4;
+  currentY += sectionSpacing;
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('2. PHYSICAL DRAWER CASH RECONCILIATION', 14, y);
-  doc.line(14, y + 3, 196, y + 3);
-  y += 10;
+  doc.text('2. PHYSICAL DRAWER CASH RECONCILIATION', pagePadding, currentY + 4);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
+  currentY += 9;
 
   const drawerRows = [
     ['Morning Opening Cash Float:', `RM ${closure.cashOpening.toFixed(2)}`],
@@ -867,51 +1119,85 @@ export function exportDailyClosurePDF(
     const isVariance = idx === 4;
     if (isVariance) {
       doc.setFillColor(closure.variance === 0 ? 236 : 254, closure.variance === 0 ? 253 : 242, closure.variance === 0 ? 245 : 242);
-      doc.rect(14, y - 4, 182, 7, 'F');
+      doc.rect(pagePadding, currentY - 3.5, contentWidth, 6.5, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(closure.variance === 0 ? 6 : 185, closure.variance === 0 ? 78 : 28, closure.variance === 0 ? 59 : 28);
     } else {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
     }
-    doc.text(label, 18, y);
-    doc.text(val, 190, y, { align: 'right' });
-    y += 7.5;
+    doc.text(label, pagePadding + 4, currentY);
+    doc.text(val, pageWidth - pagePadding - 4, currentY, { align: 'right' });
+    currentY += 6.5;
   });
 
-  // Section 3: Manager Notes & Audit Signatures
-  y += 6;
+  // Section 3: Manager Sign-off
+  currentY += sectionSpacing;
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('3. MANAGER AUDIT & VERIFICATION SIGN-OFF', 14, y);
-  doc.line(14, y + 3, 196, y + 3);
-  y += 10;
-
-  doc.setFontSize(9);
-  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Reconciliation Notes:', 14, y);
-  doc.setFont('helvetica', 'normal');
-  const splitNotes = doc.splitTextToSize(closure.notes || 'Terminal and drawer balanced without audit discrepancy.', 180);
-  doc.text(splitNotes, 14, y + 5);
-  y += 18;
-
-  // Signatures
-  doc.setDrawColor(209, 213, 219);
-  doc.line(14, y + 16, 85, y + 16);
-  doc.line(125, y + 16, 196, y + 16);
+  doc.text('3. MANAGER AUDIT & VERIFICATION SIGN-OFF', pagePadding, currentY + 4);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
+  currentY += 9;
 
   doc.setFontSize(8.5);
-  doc.text(`Cashier / Closed By: ${closure.closedBy}`, 14, y + 21);
-  doc.text(`Store Manager / Verified By: ${closure.verifiedBy}`, 125, y + 21);
-  doc.text('Timestamp: ' + new Date().toLocaleString('en-MY'), 14, y + 26);
-  doc.text('Stamp / Signature', 125, y + 26);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Reconciliation Notes:', pagePadding, currentY);
+  doc.setFont('helvetica', 'normal');
+  const splitNotes = doc.splitTextToSize(closure.notes || 'Terminal and drawer balanced without audit discrepancy.', contentWidth);
+  doc.text(splitNotes, pagePadding, currentY + 4.5);
+  currentY += 12 + splitNotes.length * 4;
+
+  // Signatures lines
+  doc.setDrawColor(209, 213, 219);
+  doc.line(pagePadding, currentY + 12, pagePadding + 70, currentY + 12);
+  doc.line(pageWidth - pagePadding - 70, currentY + 12, pageWidth - pagePadding, currentY + 12);
+
+  doc.setFontSize(8);
+  doc.text(`Cashier: ${closure.closedBy}`, pagePadding, currentY + 16);
+  doc.text(`Verified By: ${closure.verifiedBy}`, pageWidth - pagePadding - 70, currentY + 16);
+  doc.text('Timestamp: ' + new Date().toLocaleString('en-MY'), pagePadding, currentY + 20);
+  doc.text('Stamp / Signature', pageWidth - pagePadding - 70, currentY + 20);
 
   // Footer
-  doc.setFontSize(7.5);
-  doc.setTextColor(156, 163, 175);
-  doc.text(`CONFIDENTIAL • INTERNAL AUDIT RECORD • ${cfg.companyName.toUpperCase()} • ${cfg.certificateText}`, 105, 285, { align: 'center' });
+  const footerY = pageHeight - bottomMargin;
+  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setLineWidth(0.5);
+  doc.line(pagePadding, footerY - 14, pageWidth - pagePadding, footerY - 14);
+
+  if (cfg.certificateText) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(cfg.certificateText, pagePadding, footerY - 9);
+  }
+
+  if (cfg.showSignatureNote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(75, 85, 99);
+    doc.text(cfg.signatureNoteText, pagePadding, footerY - 4.5);
+  }
+
+  if (cfg.showLegalDisclaimer) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(cfg.footerDisclaimer, pagePadding, footerY);
+  }
+
+  if (cfg.showSsmRegistration) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(`SSM: ${cfg.ssmRegistrationNumber} • ${cfg.officialAddress}`, pagePadding, footerY + 4);
+  }
+
+  if (cfg.customFooterText) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(cfg.customFooterText, pageWidth - pagePadding, footerY + 4, { align: 'right' });
+  }
 
   doc.save(`Dmart_ZReport_${closure.closureDate}_${closure.id}.pdf`);
 }
@@ -991,27 +1277,47 @@ export function exportRiderWalletStatementPDF(
     format: 'a4',
   });
 
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const pagePadding = cfg.pagePadding ?? 14;
+  const topMargin = cfg.topMargin ?? 12;
+  const bottomMargin = cfg.bottomMargin ?? 14;
+  const sectionSpacing = cfg.sectionSpacing ?? 6;
+  const contentWidth = pageWidth - pagePadding * 2;
+
   const primaryColor = [6, 78, 59]; // #064e3b
   const accentColor = [16, 185, 129]; // #10b981
   const darkGray = [31, 41, 55]; // #1f2937
   const lightGray = [243, 244, 246]; // #f3f4f6
 
-  // 1. Official Header
+  // 1. Official Header Banner
+  const bannerHeight = Math.max(36, topMargin * 2 + 10);
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(0, 0, 210, 38, 'F');
+  doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+  const logoInfo = (cfg.showCompanyLogo && cfg.logoPosition !== 'hidden')
+    ? drawCompanyLogo(doc, cfg.logoPosition, 6, pageWidth, pagePadding)
+    : null;
+
+  let textX = pagePadding;
+  if (logoInfo && cfg.logoPosition === 'left') {
+    textX = pagePadding + logoInfo.logoWidth + 3.5;
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(cfg.companyName.toUpperCase(), 14, 16);
-
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(cfg.headerSubtitle, 14, 24);
+  doc.setFontSize(17);
+  doc.text(cfg.companyName.toUpperCase(), textX, 15);
 
   doc.setFontSize(8);
-  doc.setTextColor(167, 243, 208); // text-emerald-200
-  doc.text(`SSM REG: ${cfg.ssmRegistrationNumber} • ${cfg.supportContact}`, 14, 31);
+  doc.setFont('helvetica', 'normal');
+  doc.text(cfg.headerSubtitle, textX, 22);
+
+  if (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(167, 243, 208); // text-emerald-200
+    doc.text(`SSM REG: ${cfg.ssmRegistrationNumber} • ${cfg.supportContact}`, textX, 27);
+  }
 
   // Date of export & Statement reference
   const now = new Date();
@@ -1026,85 +1332,70 @@ export function exportRiderWalletStatementPDF(
   const safePlate = (rider.plate || 'RIDER').replace(/[^a-zA-Z0-9]/g, '');
   const stmtRef = `STMT-${safePlate}-${now.getTime().toString().slice(-6)}`;
 
+  const metaRightX = (cfg.logoPosition === 'right' && logoInfo)
+    ? pageWidth - pagePadding - logoInfo.logoWidth - 4
+    : pageWidth - pagePadding;
+
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('Export Date:', 140, 16);
-  doc.setFont('helvetica', 'normal');
-  doc.text(exportDateStr, 160, 16);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Ref ID:', 140, 23);
-  doc.setFont('helvetica', 'normal');
-  doc.text(stmtRef, 155, 23);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Status:', 140, 30);
+  doc.text(`Date: ${exportDateStr}`, metaRightX, 15, { align: 'right' });
+  doc.text(`Ref ID: ${stmtRef}`, metaRightX, 21, { align: 'right' });
   doc.setTextColor(110, 231, 183);
-  doc.text('OFFICIALLY AUDITED', 155, 30);
+  doc.text('OFFICIALLY AUDITED', metaRightX, 27, { align: 'right' });
 
   // 2. Rider Profile Details
+  let currentY = bannerHeight + sectionSpacing;
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('1. RIDER PROFILE & FLEET CREDENTIALS', 14, 48);
+  doc.text('1. RIDER PROFILE & FLEET CREDENTIALS', pagePadding, currentY + 4);
 
   doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
   doc.setLineWidth(0.4);
-  doc.line(14, 50, 196, 50);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
 
-  // Profile Information Grid
+  currentY += 8;
   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.roundedRect(14, 53, 182, 24, 2, 2, 'F');
+  doc.roundedRect(pagePadding, currentY, contentWidth, 22, 2, 2, 'F');
 
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
 
   // Row 1
   doc.setFont('helvetica', 'bold');
-  doc.text('Driver Full Name:', 18, 60);
+  doc.text('Driver Full Name:', pagePadding + 4, currentY + 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.name, 58, 60);
+  doc.text(rider.name, pagePadding + 42, currentY + 7);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Rider ID:', 125, 60);
+  doc.text('Rider ID:', pagePadding + 115, currentY + 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.id, 150, 60);
+  doc.text(rider.id, pagePadding + 138, currentY + 7);
 
   // Row 2
   doc.setFont('helvetica', 'bold');
-  doc.text('Vehicle Reg. No:', 18, 67);
+  doc.text('Vehicle Reg. No:', pagePadding + 4, currentY + 14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(6, 78, 59);
-  doc.text(rider.plate, 58, 67);
+  doc.text(rider.plate, pagePadding + 42, currentY + 14);
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Contact Phone:', 125, 67);
+  doc.text('Contact Phone:', pagePadding + 115, currentY + 14);
   doc.setFont('helvetica', 'normal');
-  doc.text(rider.phone || '012-3491820', 150, 67);
-
-  // Row 3
-  doc.setFont('helvetica', 'bold');
-  doc.text('Vehicle Category:', 18, 74);
-  doc.setFont('helvetica', 'normal');
-  doc.text((rider.vehicleType || 'motorcycle').toUpperCase(), 58, 74);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Operational Status:', 125, 74);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(16, 185, 129);
-  doc.text((rider.status || 'available').toUpperCase(), 158, 74);
+  doc.text(rider.phone || '012-3491820', pagePadding + 138, currentY + 14);
 
   // 3. Account Summary Table
+  currentY += 22 + sectionSpacing;
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('2. FINANCIAL CLEARING ACCOUNT SUMMARY', 14, 87);
+  doc.text('2. FINANCIAL CLEARING ACCOUNT SUMMARY', pagePadding, currentY + 4);
 
   doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
   doc.setLineWidth(0.4);
-  doc.line(14, 89, 196, 89);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
 
   // Calculate Summary metrics
   const riderTxs = allTransactions.filter((t) => t.riderId === rider.id);
@@ -1113,52 +1404,52 @@ export function exportRiderWalletStatementPDF(
   const totalOnlineEarnings = totalCredits > 0 ? totalCredits : rider.walletBalance + 85.0;
   const netLedgerBalance = rider.walletBalance - rider.codCollected;
 
-  // 4 Column Summary Cards Table
-  const cardWidth = 43.5;
+  currentY += 9;
   const cardGap = 2.5;
-  const startX = 14;
-  const startY = 93;
+  const cardWidth = (contentWidth - cardGap * 3) / 4;
+  const startX = pagePadding;
+  const startY = currentY;
 
   // Box 1: Current Floating Balance
   doc.setFillColor(236, 253, 245); // emerald-50
-  doc.roundedRect(startX, startY, cardWidth, 22, 2, 2, 'F');
+  doc.roundedRect(startX, startY, cardWidth, 20, 2, 2, 'F');
   doc.setDrawColor(167, 243, 208);
-  doc.rect(startX, startY, cardWidth, 22, 'S');
-  doc.setFontSize(7.5);
+  doc.rect(startX, startY, cardWidth, 20, 'S');
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(6, 95, 70);
-  doc.text('CURRENT FLOATING BALANCE', startX + 3, startY + 7);
-  doc.setFontSize(12);
+  doc.text('FLOATING BALANCE', startX + 3, startY + 6);
+  doc.setFontSize(10.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`RM ${rider.walletBalance.toFixed(2)}`, startX + 3, startY + 16);
+  doc.text(`RM ${rider.walletBalance.toFixed(2)}`, startX + 3, startY + 15);
 
   // Box 2: COD Cash Held
   const x2 = startX + cardWidth + cardGap;
   doc.setFillColor(254, 243, 199); // amber-50
-  doc.roundedRect(x2, startY, cardWidth, 22, 2, 2, 'F');
+  doc.roundedRect(x2, startY, cardWidth, 20, 2, 2, 'F');
   doc.setDrawColor(253, 230, 138);
-  doc.rect(x2, startY, cardWidth, 22, 'S');
-  doc.setFontSize(7.5);
+  doc.rect(x2, startY, cardWidth, 20, 'S');
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(146, 64, 14);
-  doc.text('COD CASH HELD (IN-HAND)', x2 + 3, startY + 7);
-  doc.setFontSize(12);
+  doc.text('COD CASH HELD', x2 + 3, startY + 6);
+  doc.setFontSize(10.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`RM ${rider.codCollected.toFixed(2)}`, x2 + 3, startY + 16);
+  doc.text(`RM ${rider.codCollected.toFixed(2)}`, x2 + 3, startY + 15);
 
   // Box 3: Total Online Earnings
   const x3 = x2 + cardWidth + cardGap;
   doc.setFillColor(240, 253, 250); // teal-50
-  doc.roundedRect(x3, startY, cardWidth, 22, 2, 2, 'F');
+  doc.roundedRect(x3, startY, cardWidth, 20, 2, 2, 'F');
   doc.setDrawColor(204, 251, 241);
-  doc.rect(x3, startY, cardWidth, 22, 'S');
-  doc.setFontSize(7.5);
+  doc.rect(x3, startY, cardWidth, 20, 'S');
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(17, 94, 89);
-  doc.text('TOTAL ONLINE EARNINGS', x3 + 3, startY + 7);
-  doc.setFontSize(12);
+  doc.text('ONLINE EARNINGS', x3 + 3, startY + 6);
+  doc.setFontSize(10.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`RM ${totalOnlineEarnings.toFixed(2)}`, x3 + 3, startY + 16);
+  doc.text(`RM ${totalOnlineEarnings.toFixed(2)}`, x3 + 3, startY + 15);
 
   // Box 4: Net Ledger Balance
   const x4 = x3 + cardWidth + cardGap;
@@ -1170,41 +1461,37 @@ export function exportRiderWalletStatementPDF(
     doc.setFillColor(159, 18, 57);
     doc.setTextColor(255, 255, 255);
   }
-  doc.roundedRect(x4, startY, cardWidth, 22, 2, 2, 'F');
-  doc.setFontSize(7.5);
+  doc.roundedRect(x4, startY, cardWidth, 20, 2, 2, 'F');
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('NET LEDGER BALANCE', x4 + 3, startY + 7);
-  doc.setFontSize(12);
+  doc.text('NET LEDGER BAL', x4 + 3, startY + 6);
+  doc.setFontSize(10.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`${netLedgerBalance < 0 ? '-' : ''}RM ${Math.abs(netLedgerBalance).toFixed(2)}`, x4 + 3, startY + 16);
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(isNetPositive ? '(Surplus / Withdrawable)' : '(Amount Owed to Platform)', x4 + 3, startY + 20);
+  doc.text(`${netLedgerBalance < 0 ? '-' : ''}RM ${Math.abs(netLedgerBalance).toFixed(2)}`, x4 + 3, startY + 15);
 
   // 4. Itemized Transaction Ledger Table
-  let y = 124;
+  currentY = startY + 20 + sectionSpacing;
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('3. ITEMIZED TRANSACTION LEDGER TABLE', 14, y);
+  doc.text('3. ITEMIZED TRANSACTION LEDGER TABLE', pagePadding, currentY + 4);
 
   doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
   doc.setLineWidth(0.4);
-  doc.line(14, y + 2, 196, y + 2);
+  doc.line(pagePadding, currentY + 6, pageWidth - pagePadding, currentY + 6);
 
-  // Table Column Headers
-  y += 7;
+  currentY += 8;
   doc.setFillColor(6, 78, 59);
-  doc.rect(14, y, 182, 8, 'F');
+  doc.rect(pagePadding, currentY, contentWidth, 7, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('TX REF / ID', 17, y + 5.5);
-  doc.text('DATE / TIME', 50, y + 5.5);
-  doc.text('DESCRIPTION', 85, y + 5.5);
-  doc.text('TYPE', 150, y + 5.5);
-  doc.text('AMOUNT (RM)', 175, y + 5.5);
+  doc.text('TX REF / ID', pagePadding + 3, currentY + 5);
+  doc.text('DATE / TIME', pagePadding + 35, currentY + 5);
+  doc.text('DESCRIPTION', pagePadding + 70, currentY + 5);
+  doc.text('TYPE', pagePadding + 130, currentY + 5);
+  doc.text('AMOUNT (RM)', pageWidth - pagePadding - 4, currentY + 5, { align: 'right' });
 
   // Prepare display transactions
   const displayTxs =
@@ -1253,86 +1540,95 @@ export function exportRiderWalletStatementPDF(
           },
         ];
 
-  y += 8;
+  currentY += 7;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
 
-  displayTxs.slice(0, 14).forEach((tx, idx) => {
+  displayTxs.slice(0, 12).forEach((tx, idx) => {
     const isCredit = tx.amount >= 0;
     const isEven = idx % 2 === 0;
 
     if (isEven) {
       doc.setFillColor(249, 250, 251);
-      doc.rect(14, y, 182, 8.5, 'F');
+      doc.rect(pagePadding, currentY, contentWidth, 7, 'F');
     }
 
     doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text(tx.referenceNo || tx.id, 17, y + 5.5);
+    doc.text(tx.referenceNo || tx.id, pagePadding + 3, currentY + 4.5);
 
     doc.setFont('helvetica', 'normal');
-    doc.text(tx.createdAt || now.toISOString().slice(0, 16), 50, y + 5.5);
+    doc.text(tx.createdAt || now.toISOString().slice(0, 16), pagePadding + 35, currentY + 4.5);
 
     // Truncate description if too long
     const desc = (tx.notes || 'Dispatch delivery transaction').slice(0, 36);
-    doc.text(desc, 85, y + 5.5);
+    doc.text(desc, pagePadding + 70, currentY + 4.5);
 
     // Type badge text
     if (isCredit) {
       doc.setTextColor(6, 95, 70);
       doc.setFont('helvetica', 'bold');
-      doc.text('CREDIT', 150, y + 5.5);
+      doc.text('CREDIT', pagePadding + 130, currentY + 4.5);
     } else {
       doc.setTextColor(159, 18, 57);
       doc.setFont('helvetica', 'bold');
-      doc.text('DEBIT', 150, y + 5.5);
+      doc.text('DEBIT', pagePadding + 130, currentY + 4.5);
     }
 
     // Amount text
     if (isCredit) {
       doc.setTextColor(6, 95, 70);
-      doc.text(`+RM ${tx.amount.toFixed(2)}`, 175, y + 5.5);
+      doc.text(`+RM ${tx.amount.toFixed(2)}`, pageWidth - pagePadding - 4, currentY + 4.5, { align: 'right' });
     } else {
       doc.setTextColor(159, 18, 57);
-      doc.text(`-RM ${Math.abs(tx.amount).toFixed(2)}`, 175, y + 5.5);
+      doc.text(`-RM ${Math.abs(tx.amount).toFixed(2)}`, pageWidth - pagePadding - 4, currentY + 4.5, { align: 'right' });
     }
 
     doc.setDrawColor(229, 231, 235);
     doc.setLineWidth(0.2);
-    doc.line(14, y + 8.5, 196, y + 8.5);
+    doc.line(pagePadding, currentY + 7, pageWidth - pagePadding, currentY + 7);
 
-    y += 8.5;
+    currentY += 7;
   });
 
   // 5. Official Footer & Verification Seal
-  const footerY = 263;
-  doc.setFillColor(243, 244, 246);
-  doc.rect(14, footerY, 182, 24, 'F');
-  doc.setDrawColor(209, 213, 219);
-  doc.rect(14, footerY, 182, 24, 'S');
+  const footerY = pageHeight - bottomMargin;
+  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setLineWidth(0.5);
+  doc.line(pagePadding, footerY - 14, pageWidth - pagePadding, footerY - 14);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(cfg.certificateText, 18, footerY + 6);
+  if (cfg.certificateText) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(cfg.certificateText, pagePadding, footerY - 9);
+  }
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(75, 85, 99);
-  doc.text(cfg.footerDisclaimer, 18, footerY + 11);
-  doc.text(
-    `SSM: ${cfg.ssmRegistrationNumber} • Official Address: ${cfg.officialAddress} • Ref: ${stmtRef}`,
-    18,
-    footerY + 16
-  );
+  if (cfg.showSignatureNote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(75, 85, 99);
+    doc.text(cfg.signatureNoteText, pagePadding, footerY - 4.5);
+  }
 
-  doc.setFontSize(7);
-  doc.setTextColor(156, 163, 175);
-  doc.text(
-    `Generated: ${new Date().toISOString()} | Secure Document Checksum: VERIFIED-OK | ${cfg.companyName}`,
-    14,
-    292
-  );
+  if (cfg.showLegalDisclaimer) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(cfg.footerDisclaimer, pagePadding, footerY);
+  }
+
+  if (cfg.showSsmRegistration) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(`SSM: ${cfg.ssmRegistrationNumber} • Official Address: ${cfg.officialAddress}`, pagePadding, footerY + 4);
+  }
+
+  if (cfg.customFooterText) {
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(cfg.customFooterText, pageWidth - pagePadding, footerY + 4, { align: 'right' });
+  }
 
   // 6. Trigger Immediate Browser Download
   const safeName = rider.name.replace(/[^a-zA-Z0-9]/g, '_');
@@ -1340,9 +1636,107 @@ export function exportRiderWalletStatementPDF(
 }
 
 /**
- * Exports a test sample statement PDF demonstrating current dynamic branding configuration
+ * Exports a test sample statement, report, or invoice PDF demonstrating current dynamic branding configuration
  */
-export function exportSamplePdfPreview(overrideConfig?: Partial<PdfConfigSettings>): void {
+export function exportSamplePdfPreview(
+  overrideConfig?: Partial<PdfConfigSettings>,
+  sampleType: 'statement' | 'invoice' | 'report' = 'statement'
+): void {
+  if (sampleType === 'report') {
+    const sampleClosure: DailyClosureRecord = {
+      id: 'DCR-2026-10-09-01',
+      closureDate: '2026-10-09',
+      registerId: 'POS-01 (Main)',
+      cashierName: 'Aisyah Binti Razak',
+      cashOpening: 300.0,
+      cashSales: 1250.0,
+      drawerExpectedCash: 1550.0,
+      drawerActualCash: 1550.0,
+      variance: 0.0,
+      fpxSales: 3420.0,
+      tngSales: 1890.0,
+      cardSales: 2150.0,
+      deliveryFeesCollected: 380.0,
+      totalGrossSales: 9090.0,
+      totalDiscounts: 240.0,
+      netRevenue: 8850.0,
+      cogs: 5900.0,
+      netProfit: 2950.0,
+      notes: 'All cashier registers and COD envelopes verified and deposited into Bangsar safe vault.',
+      closedBy: 'Aisyah Razak',
+      verifiedBy: 'Encik Farhan Al-Mehdhar',
+      status: 'balanced',
+      timestamp: new Date().toISOString(),
+    };
+    exportDailyClosurePDF(sampleClosure, overrideConfig);
+    return;
+  }
+
+  if (sampleType === 'invoice') {
+    const sampleOrder: Order = {
+      id: 'ord_sample_99120',
+      orderNumber: 'DM-99120',
+      items: [
+        {
+          id: 'item-1',
+          name: 'Jasmine Super Special Tempatan Rice 10kg',
+          nameMs: 'Beras Jasmine Super Special Tempatan 10kg',
+          price: 38.9,
+          quantity: 1,
+          unit: '10kg',
+          category: 'staples',
+          image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400',
+        },
+        {
+          id: 'item-2',
+          name: 'Farm Fresh Pure Fresh Milk 1L',
+          nameMs: 'Susu Segar Farm Fresh 1L',
+          price: 8.5,
+          quantity: 2,
+          unit: '1L',
+          category: 'dairy',
+          image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+        },
+        {
+          id: 'item-3',
+          name: 'Ayam Brand Tuna Flakes in Sunflower Oil 150g',
+          nameMs: 'Ayam Brand Serpihan Tuna dalam Minyak Bunga Matahari 150g',
+          price: 7.2,
+          quantity: 3,
+          unit: '150g',
+          category: 'canned',
+          image: 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?w=400',
+        },
+      ],
+      subtotal: 77.5,
+      deliveryFee: 0.0,
+      discount: 5.0,
+      tip: 3.0,
+      total: 75.5,
+      pointsRedeemed: 200,
+      pointsEarned: 76,
+      deliveryAddress: {
+        recipientName: 'Nurul Huda Binti Ahmad',
+        phone: '+60 12-883 9120',
+        street: 'No. 18, Jalan Telawi 3, Bangsar',
+        city: 'Kuala Lumpur',
+        state: 'Wilayah Persekutuan',
+        postcode: '59100',
+        country: 'Malaysia',
+        formattedAddress: 'No. 18, Jalan Telawi 3, Bangsar, 59100 Kuala Lumpur',
+      },
+      paymentMethod: 'tng_ewallet',
+      deliverySlot: 'Today, 2:00 PM - 4:00 PM (Express)',
+      status: 'delivered',
+      createdAt: new Date().toISOString(),
+      assignedRiderId: 'DEMO-RDR-01',
+      customerName: 'Nurul Huda Binti Ahmad',
+      customerPhone: '+60 12-883 9120',
+    } as any;
+    generateOrderReceiptPdf({ order: sampleOrder, language: 'en', overrideConfig });
+    return;
+  }
+
   const sampleRider: FleetRider = {
     id: 'DEMO-RDR-01',
     name: 'Muhammad Haziq Bin Yusof',
@@ -1407,3 +1801,5 @@ export function exportSamplePdfPreview(overrideConfig?: Partial<PdfConfigSetting
 
   exportRiderWalletStatementPDF(sampleRider, sampleTxs, overrideConfig);
 }
+
+export { exportOrdersReconciliationCSV, type OrderCsvExportOptions } from './orderCsvExport';

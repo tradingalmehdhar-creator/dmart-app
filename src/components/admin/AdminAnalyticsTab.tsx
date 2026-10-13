@@ -33,7 +33,7 @@ import {
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import { Order, Product, Language } from '../../types';
-import { getGlobalPdfConfig } from '../../utils/pdfGenerator';
+import { getGlobalPdfConfig, drawCompanyLogo } from '../../utils/pdfGenerator';
 
 interface AdminAnalyticsTabProps {
   orders: Order[];
@@ -165,33 +165,67 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const cfg = getGlobalPdfConfig();
 
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const pagePadding = cfg.pagePadding ?? 14;
+    const topMargin = cfg.topMargin ?? 12;
+    const bottomMargin = cfg.bottomMargin ?? 14;
+    const contentWidth = pageWidth - pagePadding * 2;
+
     // Header Background
+    const bannerHeight = Math.max(36, topMargin * 2 + 10);
     doc.setFillColor(6, 78, 59); // deep emerald
-    doc.rect(0, 0, 210, 36, 'F');
+    doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+    // Draw Company Logo according to position
+    const logoInfo = (cfg.showCompanyLogo && cfg.logoPosition !== 'hidden')
+      ? drawCompanyLogo(doc, cfg.logoPosition, 6, pageWidth, pagePadding)
+      : null;
+
+    let textX = pagePadding;
+    if (logoInfo && cfg.logoPosition === 'left') {
+      textX = pagePadding + logoInfo.logoWidth + 3.5;
+    }
 
     // Title & Logo
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(cfg.companyName.toUpperCase(), 14, 15);
-
-    doc.setFontSize(8.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`SSM Reg No: ${cfg.ssmRegistrationNumber} | JAKIM Halal: JAKIM/(S)/(22.00)/492/2/1`, 14, 22);
-    doc.text(`${cfg.headerSubtitle.slice(0, 60)} • Revenue Audit Statement`, 14, 28);
+    doc.setFontSize(17);
+    doc.text(cfg.companyName.toUpperCase(), textX, 15);
 
     doc.setFontSize(8);
-    doc.text(`Generated: ${new Date().toLocaleString()} (MYT)`, 140, 28);
+    doc.setFont('helvetica', 'normal');
+    if (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) {
+      doc.text(`SSM Reg: ${cfg.ssmRegistrationNumber} | JAKIM Halal: JAKIM/(S)/(22.00)/492/2/1`, textX, 22);
+    } else {
+      doc.text(`JAKIM Halal Verified Premise: JAKIM/(S)/(22.00)/492/2/1`, textX, 22);
+    }
+    doc.text(`${cfg.headerSubtitle.slice(0, 60)} • Revenue Audit Statement`, textX, 28);
+
+    if (cfg.customHeaderText) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(167, 243, 208);
+      doc.text(cfg.customHeaderText, textX, 33);
+    }
+
+    const metaRightX = (cfg.logoPosition === 'right' && logoInfo)
+      ? pageWidth - pagePadding - logoInfo.logoWidth - 4
+      : pageWidth - pagePadding;
+
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Generated: ${new Date().toLocaleString()} (MYT)`, metaRightX, 28, { align: 'right' });
 
     // Body Text
     doc.setTextColor(30, 41, 59);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
-    doc.text('1. EXECUTIVE SALES & MARGIN BREAKDOWN', 14, 48);
+    doc.text('1. EXECUTIVE SALES & MARGIN BREAKDOWN', pagePadding, bannerHeight + (cfg.sectionSpacing ?? 6) + 6);
 
     // Summary Key Values Grid
+    let currentY = bannerHeight + (cfg.sectionSpacing ?? 6) + 10;
     doc.setFillColor(248, 250, 252);
-    doc.roundedRect(14, 52, 182, 32, 2, 2, 'F');
+    doc.roundedRect(pagePadding, currentY, contentWidth, 32, 2, 2, 'F');
 
     doc.setFontSize(9);
     doc.setTextColor(100, 116, 139);
@@ -268,17 +302,56 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
     // Auditor Signature Block
     yPos += 20;
     doc.setDrawColor(148, 163, 184);
-    doc.line(14, yPos, 80, yPos);
-    doc.line(120, yPos, 186, yPos);
+    doc.line(pagePadding, yPos, pagePadding + 66, yPos);
+    doc.line(pageWidth - pagePadding - 66, yPos, pageWidth - pagePadding, yPos);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(30, 41, 59);
-    doc.text('Lim Kok Seng, CA(M)', 14, yPos + 5);
-    doc.text('Corporate Financial Auditor & Controller', 14, yPos + 9);
+    doc.text('Lim Kok Seng, CA(M)', pagePadding, yPos + 5);
+    doc.text('Corporate Financial Auditor & Controller', pagePadding, yPos + 9);
 
-    doc.text('Dato’ Farhan Al-Mehdhar', 120, yPos + 5);
-    doc.text('Executive Director, D-mart Supermarket Sdn. Bhd.', 120, yPos + 9);
+    doc.text('Dato’ Farhan Al-Mehdhar', pageWidth - pagePadding - 66, yPos + 5);
+    doc.text('Executive Director, D-mart Supermarket Sdn. Bhd.', pageWidth - pagePadding - 66, yPos + 9);
+
+    // Official Dynamic Footer
+    const footerY = pageHeight - bottomMargin;
+    doc.setDrawColor(6, 78, 59);
+    doc.setLineWidth(0.5);
+    doc.line(pagePadding, footerY - 14, pageWidth - pagePadding, footerY - 14);
+
+    if (cfg.certificateText) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(6, 78, 59);
+      doc.text(cfg.certificateText, pagePadding, footerY - 9);
+    }
+
+    if (cfg.showSignatureNote) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(75, 85, 99);
+      doc.text(cfg.signatureNoteText, pagePadding, footerY - 4.5);
+    }
+
+    if (cfg.showLegalDisclaimer) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(107, 114, 128);
+      doc.text(cfg.footerDisclaimer, pagePadding, footerY);
+    }
+
+    if (cfg.showSsmRegistration) {
+      doc.setFontSize(7);
+      doc.setTextColor(156, 163, 175);
+      doc.text(`SSM: ${cfg.ssmRegistrationNumber} • ${cfg.officialAddress}`, pagePadding, footerY + 4);
+    }
+
+    if (cfg.customFooterText) {
+      doc.setFontSize(7);
+      doc.setTextColor(156, 163, 175);
+      doc.text(cfg.customFooterText, pageWidth - pagePadding, footerY + 4, { align: 'right' });
+    }
 
     // Save
     doc.save(`D-mart_Financial_Report_${new Date().toISOString().slice(0, 10)}.pdf`);

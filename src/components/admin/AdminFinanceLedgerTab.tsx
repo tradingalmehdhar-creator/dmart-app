@@ -52,6 +52,14 @@ import {
   updatePayoutRequestStatusInFirestore
 } from '../../firebase_config';
 import {
+  seedPayoutLedgerMockData,
+  fetchPartnerOrders,
+  fetchPayoutLedgerRecords,
+  calculateNetPayout,
+  PartnerOrderDoc,
+  PayoutLedgerDoc,
+} from '../../services/seedPayoutLedger';
+import {
   INITIAL_DAILY_CLOSURES,
   INITIAL_MERCHANT_PARTNERS,
   INITIAL_PARTNER_LEDGER_ENTRIES,
@@ -61,7 +69,8 @@ import {
   exportRiderPayoutSummaryPDF,
   exportRiderPayoutsCSV,
   exportDailyClosurePDF,
-  exportDailyClosuresCSV
+  exportDailyClosuresCSV,
+  exportOrdersReconciliationCSV
 } from '../../utils/pdfGenerator';
 import { AdminRiderFinancialAccountsTab } from './AdminRiderFinancialAccountsTab';
 
@@ -114,6 +123,50 @@ export const AdminFinanceLedgerTab: React.FC<AdminFinanceLedgerTabProps> = ({
     const saved = localStorage.getItem('dmart_daily_closures');
     return saved ? JSON.parse(saved) : INITIAL_DAILY_CLOSURES;
   });
+
+  // Partner Payout Ledger Testing State (PARTNER_TEST_01 / Almehdhar Trading Co.)
+  const [partnerTestOrders, setPartnerTestOrders] = useState<PartnerOrderDoc[]>([]);
+  const [partnerTestLedgers, setPartnerTestLedgers] = useState<PayoutLedgerDoc[]>([]);
+  const [isSeedingPayoutLedger, setIsSeedingPayoutLedger] = useState(false);
+  const [isFetchingPartnerData, setIsFetchingPartnerData] = useState(false);
+  const [seedSuccessNotice, setSeedSuccessNotice] = useState<string | null>(null);
+
+  const refreshPartnerTestData = async () => {
+    setIsFetchingPartnerData(true);
+    try {
+      const [ordersList, ledgersList] = await Promise.all([
+        fetchPartnerOrders('PARTNER_TEST_01'),
+        fetchPayoutLedgerRecords('PARTNER_TEST_01'),
+      ]);
+      setPartnerTestOrders(ordersList);
+      setPartnerTestLedgers(ledgersList);
+    } finally {
+      setIsFetchingPartnerData(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshPartnerTestData();
+  }, []);
+
+  const handleSeedPayoutLedger = async () => {
+    setIsSeedingPayoutLedger(true);
+    try {
+      const res = await seedPayoutLedgerMockData();
+      if (res.success) {
+        setSeedSuccessNotice(res.message);
+        setTimeout(() => setSeedSuccessNotice(null), 6000);
+        await refreshPartnerTestData();
+      }
+    } finally {
+      setIsSeedingPayoutLedger(false);
+    }
+  };
+
+  const partnerCalculation = calculateNetPayout(
+    partnerTestOrders,
+    partnerTestLedgers[0]?.commissionRate ?? 0.1
+  );
 
   // Fleet Riders State for Creditor/Debtor tracking (wallet balance = Creditor, COD cash = Debtor)
   const [fleetRiders, setFleetRiders] = useState<FleetRider[]>(() => {
@@ -179,6 +232,51 @@ export const AdminFinanceLedgerTab: React.FC<AdminFinanceLedgerTabProps> = ({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Live Order Sales Journal Filters & Reconciliation CSV State
+  const [journalSearch, setJournalSearch] = useState('');
+  const [journalStatusFilter, setJournalStatusFilter] = useState('all');
+  const [journalPaymentFilter, setJournalPaymentFilter] = useState('all');
+
+  const filteredJournalOrders = orders.filter((ord) => {
+    if (journalSearch.trim()) {
+      const q = journalSearch.toLowerCase();
+      const matchNo = (ord.orderNumber || '').toLowerCase().includes(q);
+      const matchCust = (ord.deliveryAddress?.recipientName || '').toLowerCase().includes(q);
+      const matchPhone = (ord.deliveryAddress?.phone || '').toLowerCase().includes(q);
+      if (!matchNo && !matchCust && !matchPhone) return false;
+    }
+    if (journalStatusFilter !== 'all') {
+      const s = (ord.status || '').toLowerCase();
+      if (journalStatusFilter === 'delivered' && s !== 'delivered' && s !== 'completed') return false;
+      if (journalStatusFilter === 'out_for_delivery' && s !== 'out_for_delivery') return false;
+      if (journalStatusFilter === 'packing' && s !== 'packing' && s !== 'preparing') return false;
+      if (journalStatusFilter === 'submitted' && s !== 'submitted' && s !== 'received') return false;
+    }
+    if (journalPaymentFilter !== 'all') {
+      if ((ord.paymentMethod || '').toUpperCase() !== journalPaymentFilter.toUpperCase()) return false;
+    }
+    return true;
+  });
+
+  const journalTotalCredited = filteredJournalOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+
+  const handleExportJournalCSV = () => {
+    if (filteredJournalOrders.length === 0) {
+      showToast(language === 'en' ? 'No orders match criteria to export.' : 'Tiada pesanan sepadan untuk dieksport.');
+      return;
+    }
+    const res = exportOrdersReconciliationCSV(filteredJournalOrders, {
+      statusFilter: journalStatusFilter,
+      paymentFilter: journalPaymentFilter,
+      searchQuery: journalSearch,
+    });
+    showToast(
+      language === 'en'
+        ? `Exported ${res.count} orders (RM ${res.totalAmount.toFixed(2)}) for reconciliation.`
+        : `Berjaya memuat turun ${res.count} pesanan (RM ${res.totalAmount.toFixed(2)}) untuk penyelarasan.`
+    );
   };
 
   // Live Firestore Payout Requests (Admin Audit & Treasury)
@@ -1074,6 +1172,226 @@ export const AdminFinanceLedgerTab: React.FC<AdminFinanceLedgerTabProps> = ({
             </div>
           </div>
 
+          {/* Partner Payout Ledger Mock Data Testing & Verification (Firestore: PARTNER_TEST_01 / Almehdhar Trading Co.) */}
+          <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-900 rounded-3xl p-5 sm:p-6 text-white shadow-xl border border-emerald-500/30">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-emerald-500/20">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 text-emerald-300">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
+                      Firestore Payout Ledger Integration
+                    </span>
+                    <span className="text-xs font-mono font-bold text-emerald-200">
+                      PARTNER_TEST_01
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-white mt-0.5">
+                    Almehdhar Trading Co. — Net Payout Ledger Settlement
+                  </h3>
+                  <p className="text-xs text-gray-300 mt-0.5">
+                    Automated 10% commission deduction on completed sales, excluding pending and cancelled transactions.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  id="seed-payout-ledger-btn"
+                  onClick={handleSeedPayoutLedger}
+                  disabled={isSeedingPayoutLedger}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-emerald-950 font-black text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isSeedingPayoutLedger ? 'Seeding to Firestore...' : 'Seed Payout Ledger Mock Data'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={refreshPartnerTestData}
+                  disabled={isFetchingPartnerData}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-200 border border-white/10 transition-all cursor-pointer"
+                  title="Refresh from Firestore"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isFetchingPartnerData ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Success Notification Alert */}
+            {seedSuccessNotice && (
+              <div className="mt-4 p-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold flex items-center justify-between animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{seedSuccessNotice}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSeedSuccessNotice(null)}
+                  className="text-emerald-300 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Financial Metrics Summary Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Gross Completed Sales
+                </span>
+                <p className="text-lg font-black font-mono text-white mt-1">
+                  RM {partnerCalculation.grossCompletedSales.toFixed(2)}
+                </p>
+                <span className="text-[10px] text-gray-400">
+                  {partnerCalculation.completedOrderCount} Completed Orders (RM 100 + RM 200)
+                </span>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300">
+                  Commission Deducted (10%)
+                </span>
+                <p className="text-lg font-black font-mono text-rose-400 mt-1">
+                  -RM {partnerCalculation.commissionDeducted.toFixed(2)}
+                </p>
+                <span className="text-[10px] text-rose-300/80">
+                  Platform Fee (10% of RM {partnerCalculation.grossCompletedSales.toFixed(2)})
+                </span>
+              </div>
+
+              <div className="bg-emerald-500/15 rounded-2xl p-3 border border-emerald-400/40 ring-1 ring-emerald-400/30">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  Net Payout Payable
+                </span>
+                <p className="text-xl font-black font-mono text-emerald-300 mt-1">
+                  RM {partnerCalculation.netPayoutPayable.toFixed(2)}
+                </p>
+                <span className="text-[10px] text-emerald-200/90 font-medium">
+                  Net Remittance Due to Partner
+                </span>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                  Excluded from Payout
+                </span>
+                <p className="text-lg font-black font-mono text-amber-400 mt-1">
+                  RM {(partnerCalculation.pendingAmountExcluded + partnerCalculation.cancelledAmountIgnored).toFixed(2)}
+                </p>
+                <span className="text-[10px] text-gray-400">
+                  Pending: RM {partnerCalculation.pendingAmountExcluded.toFixed(2)} | Cancelled: RM {partnerCalculation.cancelledAmountIgnored.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Firestore Orders Itemized Table & Ledger Metadata */}
+            <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Left 2 Cols: Itemized Orders in Firestore */}
+              <div className="lg:col-span-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">
+                    Firestore Partner Orders (`orders` collection)
+                  </span>
+                  <span className="text-[11px] text-gray-400 font-mono">
+                    {partnerTestOrders.length} records found
+                  </span>
+                </div>
+
+                {partnerTestOrders.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center text-xs text-gray-400">
+                    No partner orders found in Firestore. Click &ldquo;Seed Payout Ledger Mock Data&rdquo; above to write the 4 test orders and payout ledger summary.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 text-xs">
+                    {partnerTestOrders.map((ord, idx) => (
+                      <div
+                        key={ord.id || idx}
+                        className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 hover:bg-white/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${
+                              ord.status === 'COMPLETED'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : ord.status === 'PENDING'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            }`}
+                          >
+                            {ord.status}
+                          </span>
+                          <span className="text-gray-200 font-medium">
+                            {Array.isArray(ord.items) ? ord.items.join(', ') : 'Order Items'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-right">
+                          <span className="font-mono font-bold text-white">
+                            RM {Number(ord.amount).toFixed(2)}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {ord.status === 'COMPLETED'
+                              ? '(Included)'
+                              : ord.status === 'PENDING'
+                              ? '(Pending Excluded)'
+                              : '(Ignored)'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Col: Payout Ledger Summary Record in Firestore */}
+              <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-2">
+                <span className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                  Firestore Ledger Summary (`payout_ledger`)
+                </span>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-white/10">
+                    <span className="text-gray-400">Advertiser ID:</span>
+                    <span className="font-mono font-bold text-white">
+                      {partnerTestLedgers[0]?.advertiserId || 'PARTNER_TEST_01'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/10">
+                    <span className="text-gray-400">Partner Name:</span>
+                    <span className="font-bold text-emerald-300">
+                      {partnerTestLedgers[0]?.partnerName || 'Almehdhar Trading Co.'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/10">
+                    <span className="text-gray-400">Commission Rate:</span>
+                    <span className="font-mono font-bold text-white">
+                      {((partnerTestLedgers[0]?.commissionRate ?? 0.1) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/10">
+                    <span className="text-gray-400">Period:</span>
+                    <span className="font-mono text-gray-200">
+                      {partnerTestLedgers[0]?.periodStart || '2026-10-01'} ~ {partnerTestLedgers[0]?.periodEnd || '2026-10-31'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-gray-400">Settlement Status:</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      {partnerTestLedgers[0]?.settlementStatus || 'UNSETTLED'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Filtering and Search Toolbar */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-4 space-y-3">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -1400,14 +1718,82 @@ export const AdminFinanceLedgerTab: React.FC<AdminFinanceLedgerTabProps> = ({
       {/* ========================================================================= */}
       {activeSubTab === 'ledger' && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
             <div>
-              <h3 className="font-bold text-gray-900 text-base">
-                {language === 'en' ? 'Live Order Sales Journal' : 'Jurnal Jualan Pesanan Langsung'}
+              <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                <span>{language === 'en' ? 'Live Order Sales Journal & Reconciliation' : 'Jurnal Jualan Pesanan & Penyelarasan'}</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
+                  {filteredJournalOrders.length} {language === 'en' ? 'filtered' : 'ditapis'}
+                </span>
               </h3>
-              <p className="text-xs text-gray-500">Real-time ledger entries credited from supermarket transactions.</p>
+              <p className="text-xs text-gray-500">
+                {language === 'en'
+                  ? 'Real-time ledger entries credited from supermarket transactions. Export to CSV for audit reconciliation.'
+                  : 'Entri lejar masa nyata dikreditkan daripada transaksi pasar raya. Eksport ke CSV untuk audit.'}
+              </p>
             </div>
-            <span className="text-xs font-mono text-gray-400">Total Orders: {orders.length}</span>
+            
+            <button
+              type="button"
+              id="export-journal-orders-csv-btn"
+              data-testid="export-journal-orders-csv-btn"
+              onClick={handleExportJournalCSV}
+              disabled={filteredJournalOrders.length === 0}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-40 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
+              title="Export currently filtered journal orders to CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{language === 'en' ? `Export Reconciliation CSV (${filteredJournalOrders.length})` : `Eksport CSV Penyelarasan (${filteredJournalOrders.length})`}</span>
+            </button>
+          </div>
+
+          {/* Filter Bar for Sales Journal */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-gray-50/80 p-3 rounded-xl border border-gray-100 text-xs">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={journalSearch}
+                onChange={(e) => setJournalSearch(e.target.value)}
+                placeholder={language === 'en' ? 'Search order ref, customer...' : 'Cari rujukan pesanan, pelanggan...'}
+                className="w-full pl-8 pr-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+              />
+            </div>
+            <div>
+              <select
+                value={journalStatusFilter}
+                onChange={(e) => setJournalStatusFilter(e.target.value)}
+                className="w-full py-1.5 px-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                <option value="all">{language === 'en' ? 'All Order Statuses' : 'Semua Status'}</option>
+                <option value="delivered">{language === 'en' ? 'Delivered / Settled' : 'Dihantar'}</option>
+                <option value="out_for_delivery">{language === 'en' ? 'Out for Delivery' : 'Dalam Penghantaran'}</option>
+                <option value="packing">{language === 'en' ? 'Packing' : 'Dibungkus'}</option>
+                <option value="submitted">{language === 'en' ? 'Submitted' : 'Dihantar Pelanggan'}</option>
+              </select>
+            </div>
+            <div>
+              <select
+                value={journalPaymentFilter}
+                onChange={(e) => setJournalPaymentFilter(e.target.value)}
+                className="w-full py-1.5 px-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                <option value="all">{language === 'en' ? 'All Payment Methods' : 'Semua Kaedah Bayaran'}</option>
+                <option value="FPX">DuitNow / FPX</option>
+                <option value="COD">Cash on Delivery (COD)</option>
+                <option value="TNG">Touch &apos;n Go eWallet</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+            <span>
+              {language === 'en' ? 'Showing' : 'Menunjukkan'} <strong className="text-gray-800">{filteredJournalOrders.length}</strong> {language === 'en' ? 'orders' : 'pesanan'}
+            </span>
+            <span>
+              {language === 'en' ? 'Total Credited Volume:' : 'Jumlah Jumlah Dikreditkan:'}{' '}
+              <strong className="text-emerald-700 font-mono">RM {journalTotalCredited.toFixed(2)}</strong>
+            </span>
           </div>
 
           <div className="overflow-x-auto">
@@ -1424,7 +1810,7 @@ export const AdminFinanceLedgerTab: React.FC<AdminFinanceLedgerTabProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {orders.slice(0, 15).map((ord) => (
+                {filteredJournalOrders.slice(0, 50).map((ord) => (
                   <tr key={ord.id} className="hover:bg-gray-50/70">
                     <td className="p-3 font-mono font-bold text-gray-900">{ord.orderNumber}</td>
                     <td className="p-3 text-gray-800">{ord.deliveryAddress.recipientName}</td>

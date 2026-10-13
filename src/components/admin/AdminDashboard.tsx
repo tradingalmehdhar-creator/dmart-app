@@ -29,8 +29,13 @@ import {
   Building2,
   Landmark,
   Receipt,
-  Wallet
+  Wallet,
+  FileText,
+  Menu,
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
+import { exportOrdersReconciliationCSV } from '../../utils/orderCsvExport';
 import {
   Product,
   DeliveryPartnerApplication,
@@ -70,6 +75,7 @@ import { AdminMarketingTab } from './AdminMarketingTab';
 import { AdminFinanceLedgerTab } from './AdminFinanceLedgerTab';
 import { AdminMerchantsTab } from './AdminMerchantsTab';
 import { AdminComplianceSettingsTab } from './AdminComplianceSettingsTab';
+import { AdminPdfSettingsPanel } from './AdminPdfSettingsPanel';
 import {
   saveBannerToFirestore,
   deleteBannerFromFirestore,
@@ -256,6 +262,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [isNavDropdownOpen, setIsNavDropdownOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const alertDropdownRef = useRef<HTMLDivElement>(null);
   const navDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -405,6 +412,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       badge: documents.length,
       badgeColor: 'bg-slate-800 text-slate-300',
     },
+    {
+      id: 'pdf_settings' as AdminTabType,
+      num: 9,
+      label: language === 'en' ? 'PDF Settings' : 'Tetapan PDF',
+      displayTitle: language === 'en' ? '9. PDF Settings' : '9. Tetapan PDF',
+      subLabel: language === 'en' ? 'Header, footer & PDF page layouts' : 'Pengepala, pengaki & susun atur PDF',
+      shortLabel: language === 'en' ? 'PDF Settings' : 'Tetapan PDF',
+      icon: FileText,
+      badge: 'Live',
+      badgeColor: 'bg-emerald-400 text-slate-950 font-black',
+    },
   ];
 
   const currentTabConfig = tabsConfig.find((t) => t.id === activeTab) || tabsConfig[0];
@@ -417,7 +435,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between min-h-[58px] sm:h-18 py-2 sm:py-2.5 gap-2 sm:gap-4">
             {/* Left: Admin Portal Identity & Status Badge */}
-            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+              {/* Sidebar Menu Toggle Button */}
+              <button
+                type="button"
+                id="admin-sidebar-toggle-btn"
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                className="p-2 sm:p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-800 flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:border-emerald-500/50"
+                title={language === 'en' ? 'Toggle Sidebar Menu' : 'Buka Menu Sisi'}
+                aria-label="Toggle Sidebar Menu"
+              >
+                <Menu className="w-4 h-4 text-emerald-400" />
+                <span className="hidden sm:inline font-bold">{language === 'en' ? 'Menu' : 'Menu'}</span>
+              </button>
+
               {/* Logo / Control Center Emblem */}
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 flex items-center justify-center text-white shrink-0 shadow-md ring-1 ring-emerald-400/30">
                 <Shield className="w-5 h-5 text-emerald-200" />
@@ -443,8 +474,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Right: Operational Alert Bell, Language Switcher, & Preview Customer Store */}
-            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Right: Reconciliation CSV Export, Operational Alert Bell, Language Switcher, & Preview Customer Store */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {/* Quick Header Export Orders Reconciliation CSV Button */}
+              <button
+                type="button"
+                id="header-export-orders-csv-btn"
+                data-testid="header-export-orders-csv-btn"
+                onClick={() => exportOrdersReconciliationCSV(orders)}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-800 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:border-emerald-500/50"
+                title={
+                  language === 'en'
+                    ? `Export all ${orders.length} orders into CSV for financial reconciliation`
+                    : `Eksport ${orders.length} pesanan ke CSV untuk penyelarasan kewangan`
+                }
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{language === 'en' ? 'Export Orders CSV' : 'Eksport CSV'}</span>
+              </button>
+
               {/* Operational Alert Notification Bell */}
               <div className="relative" ref={alertDropdownRef}>
                 <button
@@ -739,7 +787,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {language === 'en' ? 'Navigation Dropdown' : 'Menu Pilihan Navigasi'}
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    {language === 'en' ? 'All 8 Core Sections' : 'Semua 8 Modul Utama'}
+                    {language === 'en' ? 'All 9 Core Sections' : 'Semua 9 Modul Utama'}
                   </span>
                 </div>
 
@@ -805,7 +853,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     <div className="px-3 py-1.5 border-b border-slate-800 text-[10px] uppercase tracking-wider font-black text-slate-400 flex items-center justify-between">
                       <span>{language === 'en' ? 'Select Admin Section' : 'Pilih Modul Admin'}</span>
-                      <span className="text-emerald-400 font-mono">1 - 8</span>
+                      <span className="text-emerald-400 font-mono">1 - 9</span>
                     </div>
 
                     {tabsConfig.map((tab) => {
@@ -942,113 +990,324 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </header>
 
-      {/* Main Viewport Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
-        {/* 1. Inventory & Catalog */}
-        {activeTab === 'inventory' && (
-          <AdminInventoryTab
-            products={products}
-            onUpdateProducts={onUpdateProducts}
-            categories={categories}
-            onUpdateCategories={setCategories}
-            language={language}
+      {/* Mobile / Tablet Sidebar Drawer Overlay */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden animate-in fade-in duration-200">
+          <div
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsSidebarOpen(false)}
           />
-        )}
+          <div
+            id="admin-mobile-sidebar-drawer"
+            className="fixed inset-y-0 left-0 max-w-xs w-full bg-slate-900 border-r border-slate-800 text-white p-4 shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200 overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-white">D-mart Admin</h3>
+                  <p className="text-[10px] text-slate-400">Sidebar Menu</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Close Sidebar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-        {/* 2. Live Orders & Dispatch Management */}
-        {activeTab === 'dispatch' && (
-          <AdminDispatchTab
-            orders={orders}
-            onUpdateOrderStatus={onUpdateOrderStatus}
-            language={language}
-          />
-        )}
+            <nav className="space-y-1.5 flex-1" aria-label="Mobile Sidebar Menu">
+              {tabsConfig.map((tab) => {
+                const TabIcon = tab.icon;
+                const isSelected = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    id={`mobile-sidebar-item-${tab.id}`}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full px-3 py-2.5 rounded-xl text-left flex items-center justify-between gap-2.5 text-xs transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
+                        : 'text-slate-200 hover:bg-slate-800 hover:text-white font-bold'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          isSelected ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-emerald-400'
+                        }`}
+                      >
+                        <TabIcon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="truncate block font-black">{tab.label}</span>
+                        <span className={`text-[10px] truncate block ${isSelected ? 'text-slate-900/80 font-medium' : 'text-slate-400'}`}>
+                          {tab.subLabel}
+                        </span>
+                      </div>
+                    </div>
+                    {tab.badge !== undefined && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${isSelected ? 'bg-slate-950 text-emerald-300' : tab.badgeColor}`}>
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
 
-        {/* 3. Marketing & Holiday Banners */}
-        {activeTab === 'marketing' && (
-          <AdminMarketingTab
-            coupons={coupons}
-            onUpdateCoupons={setCoupons}
-            banners={banners}
-            onUpdateBanners={handleUpdateBanners}
-            broadcasts={broadcasts}
-            onUpdateBroadcasts={setBroadcasts}
-            categories={categories}
-            language={language}
-            partners={merchantPartners}
-            onUpdatePartners={setMerchantPartners}
-            partnerLedger={partnerLedger}
-            onRouteBannerSale={handleRouteBannerSale}
-            onNavigateTab={setActiveTab}
-          />
-        )}
+            {/* Mobile Drawer Quick Export Orders Reconciliation Button */}
+            <div className="pt-3 mt-3 border-t border-slate-800">
+              <button
+                type="button"
+                id="mobile-export-orders-reconciliation-btn"
+                data-testid="mobile-export-orders-reconciliation-btn"
+                onClick={() => {
+                  exportOrdersReconciliationCSV(orders);
+                  setIsSidebarOpen(false);
+                }}
+                className="w-full p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-between transition-colors cursor-pointer border border-slate-700/80"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                  </div>
+                  <span>{language === 'en' ? 'Export Orders CSV' : 'Eksport CSV'}</span>
+                </div>
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* 4. Financial Ledger & Closures & 5. Rider Financial Accounts */}
-        {(activeTab === 'finance' || activeTab === 'vault' || activeTab === 'rider_ledger') && (
-          <AdminFinanceLedgerTab
-            documents={documents}
-            payouts={payouts}
-            bankInfo={bankInfo}
-            onUpdatePayoutStatus={onUpdatePayoutStatus}
-            onUpdateBankInfo={onUpdateBankInfo}
-            orders={orders}
-            language={language}
-            partners={merchantPartners}
-            partnerLedger={partnerLedger}
-            onUpdatePartners={setMerchantPartners}
-            onUpdatePartnerLedger={setPartnerLedger}
-            applications={applications}
-            onUpdateApplicationStatus={onUpdateApplicationStatus}
-            initialSubTab={activeTab === 'rider_ledger' ? 'rider_accounts' : undefined}
-          />
-        )}
+      {/* Main Viewport Container with Dedicated Sidebar Layout */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 w-full flex-1 flex flex-col lg:flex-row gap-6 items-start">
+        {/* Dedicated Admin Dashboard Sidebar Menu */}
+        <aside
+          id="admin-dashboard-sidebar"
+          data-testid="admin-dashboard-sidebar"
+          className="hidden lg:block w-64 xl:w-72 shrink-0 space-y-4 sticky top-28"
+          aria-label="Admin Dashboard Sidebar Menu"
+        >
+          <div className="bg-white rounded-3xl border border-gray-200/90 p-3.5 shadow-xs">
+            <div className="flex items-center justify-between px-2.5 pb-3 mb-2 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-black">
+                  <Shield className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-gray-700">
+                  {language === 'en' ? 'Sidebar Menu' : 'Menu Sisi'}
+                </span>
+              </div>
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 font-mono">
+                9 {language === 'en' ? 'Sections' : 'Modul'}
+              </span>
+            </div>
 
-        {/* 5. Merchants & Store Partners */}
-        {activeTab === 'merchants' && (
-          <AdminMerchantsTab
-            language={language}
-            partners={merchantPartners}
-            onUpdatePartners={setMerchantPartners}
-            partnerLedger={partnerLedger}
-            products={products}
-          />
-        )}
+            <nav className="space-y-1" aria-label="Admin Sidebar Navigation">
+              {tabsConfig.map((tab) => {
+                const TabIcon = tab.icon;
+                const isSelected = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    id={`sidebar-item-${tab.id}`}
+                    data-testid={`sidebar-item-${tab.id}`}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full px-3 py-2.5 rounded-2xl text-left flex items-center justify-between gap-2.5 text-xs transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-900 text-white font-black shadow-xs ring-1 ring-emerald-500/50'
+                        : 'text-gray-700 hover:bg-emerald-50/60 hover:text-emerald-950 font-bold'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                          isSelected
+                            ? 'bg-emerald-500 text-slate-950 font-black'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        <TabIcon className="w-4 h-4 shrink-0" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="truncate block text-xs leading-tight">
+                          {tab.label}
+                        </span>
+                        <span
+                          className={`text-[10px] truncate block font-medium ${
+                            isSelected ? 'text-emerald-300' : 'text-gray-400'
+                          }`}
+                        >
+                          {tab.subLabel}
+                        </span>
+                      </div>
+                    </div>
+                    {tab.badge !== undefined && (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-black shrink-0 ${
+                          isSelected ? 'bg-emerald-400 text-slate-950' : tab.badgeColor
+                        }`}
+                      >
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
 
-        {/* 6. Rider & Fleet Approvals */}
-        {activeTab === 'fleet' && (
-          <AdminFleetTab
-            applications={applications}
-            onUpdateApplicationStatus={onUpdateApplicationStatus}
-            language={language}
-          />
-        )}
+            {/* Quick Export Orders for Financial Reconciliation Card */}
+            <div className="mt-3.5 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                id="sidebar-export-orders-reconciliation-btn"
+                data-testid="sidebar-export-orders-reconciliation-btn"
+                onClick={() => exportOrdersReconciliationCSV(orders)}
+                className="w-full p-2.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/80 text-emerald-950 transition-all flex items-center justify-between gap-2 text-xs font-bold shadow-2xs group cursor-pointer"
+                title={language === 'en' ? 'Export orders manifest to CSV for financial reconciliation' : 'Eksport pesanan ke CSV untuk penyelarasan kewangan'}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <span className="block text-xs font-black truncate">{language === 'en' ? 'Export Orders CSV' : 'Eksport CSV Pesanan'}</span>
+                    <span className="block text-[10px] text-emerald-700 truncate font-mono">
+                      {orders.length} {language === 'en' ? 'audit records' : 'rekod audit'}
+                    </span>
+                  </div>
+                </div>
+                <Download className="w-3.5 h-3.5 text-emerald-700 shrink-0 group-hover:translate-y-0.5 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </aside>
 
-        {/* 7. System Settings & Compliance */}
-        {activeTab === 'settings' && (
-          <AdminComplianceSettingsTab
-            promoSettings={promoSettings}
-            onUpdatePromoSettings={onUpdatePromoSettings}
-            shippingSettings={shippingSettings}
-            onUpdateShippingSettings={onUpdateShippingSettings}
-            documents={documents}
-            onUpdateDocuments={onUpdateDocuments}
-            subAdmins={subAdmins}
-            onUpdateSubAdmins={setSubAdmins}
-            activeProfile={activeProfile}
-            onChangeActiveProfile={setActiveProfile}
-            language={language}
-          />
-        )}
+        {/* Main Content Area */}
+        <main className="flex-1 min-w-0 w-full">
+          {/* 1. Inventory & Catalog */}
+          {activeTab === 'inventory' && (
+            <AdminInventoryTab
+              products={products}
+              onUpdateProducts={onUpdateProducts}
+              categories={categories}
+              onUpdateCategories={setCategories}
+              language={language}
+            />
+          )}
 
-        {/* Dedicated Support Desk view */}
-        {activeTab === 'support' && (
-          <AdminSupportTab
-            tickets={tickets}
-            onUpdateTicket={onUpdateTicket}
-            language={language}
-          />
-        )}
-      </main>
+          {/* 2. Live Orders & Dispatch Management */}
+          {activeTab === 'dispatch' && (
+            <AdminDispatchTab
+              orders={orders}
+              onUpdateOrderStatus={onUpdateOrderStatus}
+              language={language}
+            />
+          )}
+
+          {/* 3. Marketing & Holiday Banners */}
+          {activeTab === 'marketing' && (
+            <AdminMarketingTab
+              coupons={coupons}
+              onUpdateCoupons={setCoupons}
+              banners={banners}
+              onUpdateBanners={handleUpdateBanners}
+              broadcasts={broadcasts}
+              onUpdateBroadcasts={setBroadcasts}
+              categories={categories}
+              language={language}
+              partners={merchantPartners}
+              onUpdatePartners={setMerchantPartners}
+              partnerLedger={partnerLedger}
+              onRouteBannerSale={handleRouteBannerSale}
+              onNavigateTab={setActiveTab}
+            />
+          )}
+
+          {/* 4. Financial Ledger & Closures & 5. Rider Financial Accounts */}
+          {(activeTab === 'finance' || activeTab === 'vault' || activeTab === 'rider_ledger') && (
+            <AdminFinanceLedgerTab
+              documents={documents}
+              payouts={payouts}
+              bankInfo={bankInfo}
+              onUpdatePayoutStatus={onUpdatePayoutStatus}
+              onUpdateBankInfo={onUpdateBankInfo}
+              orders={orders}
+              language={language}
+              partners={merchantPartners}
+              partnerLedger={partnerLedger}
+              onUpdatePartners={setMerchantPartners}
+              onUpdatePartnerLedger={setPartnerLedger}
+              applications={applications}
+              onUpdateApplicationStatus={onUpdateApplicationStatus}
+              initialSubTab={activeTab === 'rider_ledger' ? 'rider_accounts' : undefined}
+            />
+          )}
+
+          {/* 5. Merchants & Store Partners */}
+          {activeTab === 'merchants' && (
+            <AdminMerchantsTab
+              language={language}
+              partners={merchantPartners}
+              onUpdatePartners={setMerchantPartners}
+              partnerLedger={partnerLedger}
+              products={products}
+            />
+          )}
+
+          {/* 6. Rider & Fleet Approvals */}
+          {activeTab === 'fleet' && (
+            <AdminFleetTab
+              applications={applications}
+              onUpdateApplicationStatus={onUpdateApplicationStatus}
+              language={language}
+            />
+          )}
+
+          {/* 7. System Settings & Compliance */}
+          {activeTab === 'settings' && (
+            <AdminComplianceSettingsTab
+              promoSettings={promoSettings}
+              onUpdatePromoSettings={onUpdatePromoSettings}
+              shippingSettings={shippingSettings}
+              onUpdateShippingSettings={onUpdateShippingSettings}
+              documents={documents}
+              onUpdateDocuments={onUpdateDocuments}
+              subAdmins={subAdmins}
+              onUpdateSubAdmins={setSubAdmins}
+              activeProfile={activeProfile}
+              onChangeActiveProfile={setActiveProfile}
+              language={language}
+            />
+          )}
+
+          {/* 8. Dedicated PDF Settings */}
+          {activeTab === 'pdf_settings' && (
+            <AdminPdfSettingsPanel language={language} />
+          )}
+
+          {/* Dedicated Support Desk view */}
+          {activeTab === 'support' && (
+            <AdminSupportTab
+              tickets={tickets}
+              onUpdateTicket={onUpdateTicket}
+              language={language}
+            />
+          )}
+        </main>
+      </div>
     </div>
   );
 };

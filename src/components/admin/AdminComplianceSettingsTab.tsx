@@ -15,7 +15,8 @@ import {
   Key,
   Shield,
   FileText,
-  Megaphone
+  Megaphone,
+  ExternalLink
 } from 'lucide-react';
 import {
   PromoConfig,
@@ -174,6 +175,7 @@ export const AdminComplianceSettingsTab: React.FC<AdminComplianceSettingsTabProp
 
           <button
             type="button"
+            id="subnav-pdf-template-settings"
             onClick={() => setSubSection('pdf_settings')}
             className={`px-3.5 sm:px-4 py-2 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               subSection === 'pdf_settings'
@@ -182,7 +184,7 @@ export const AdminComplianceSettingsTab: React.FC<AdminComplianceSettingsTabProp
             }`}
           >
             <FileText className="w-4 h-4 text-emerald-600" />
-            <span>{language === 'en' ? 'PDF & Statement Settings' : 'Tetapan PDF & Penyata'}</span>
+            <span>{language === 'en' ? 'PDF Template Settings' : 'Tetapan Templat PDF'}</span>
             <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[10px] rounded-full font-bold">
               Dynamic
             </span>
@@ -221,6 +223,39 @@ export const AdminComplianceSettingsTab: React.FC<AdminComplianceSettingsTabProp
             <span className="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-bold border border-emerald-200">
               5 Active Certifications
             </span>
+          </div>
+
+          {/* Statutory Data Protection & PDPA Banner */}
+          <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 text-white rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-emerald-800/60">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-400/30">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-bold text-sm text-white">
+                    {language === 'en' ? 'Malaysian PDPA 2010 Privacy Policy' : 'Dasar Privasi PDPA 2010 Malaysia'}
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                    Public Notice Active
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  {language === 'en'
+                    ? 'Official single-page privacy disclosure covering Firebase Auth, Firestore, Cloud Storage, Google Analytics & Account/Data Deletion requests.'
+                    : 'Pendedahan privasi laman tunggal rasmi merangkumi Firebase Auth, Firestore, Cloud Storage, Google Analytics & Pemadaman Data.'}
+                </p>
+              </div>
+            </div>
+            <a
+              href="/privacy.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-md cursor-pointer border border-emerald-400/40"
+            >
+              <span>{language === 'en' ? 'View Live Policy' : 'Lihat Dasar'}</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           </div>
 
           {toastMessage && (

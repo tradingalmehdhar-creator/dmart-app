@@ -7,6 +7,7 @@ import {
   MapPin,
   Clock,
   Phone,
+  MessageSquare,
   Receipt,
   X,
   ShieldCheck,
@@ -698,51 +699,69 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({
           </div>
 
           {/* Assigned Rider & Runner Card */}
-          <div className="p-4 rounded-xl bg-white border border-gray-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="p-4 rounded-xl bg-white border border-gray-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center font-bold text-emerald-800 text-sm shrink-0">
                 🛵 Azman
               </div>
-              <div>
+              <div className="min-w-0">
                 <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
                   {t.riderAssigned}
                 </span>
-                <p className="font-bold text-gray-900 text-sm">Azman bin Razak (Yamaha NVX)</p>
+                <p className="font-bold text-gray-900 text-sm truncate">Azman bin Razak (Yamaha NVX)</p>
                 <p className="text-xs text-gray-500">⭐ 4.9 (1,240+ completed deliveries)</p>
               </div>
             </div>
 
-            {/* Action Buttons in Rider Card: Live Map small button + Call button + Receipt */}
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              <button
-                id="order-page-rider-card-receipt-btn"
-                type="button"
-                onClick={() => setIsReceiptOpen(true)}
-                className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-                title={language === 'en' ? 'View Order Receipt' : 'Lihat Resit Pesanan'}
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span>{language === 'en' ? 'View Receipt' : 'Lihat Resit'}</span>
-              </button>
-
+            {/* Action Buttons in Rider Card: Live Status + Call + WhatsApp + View Order */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 md:pt-0">
+              {/* Live Status / Map Button */}
               <button
                 id="order-page-rider-card-live-map-btn"
                 type="button"
                 onClick={() => setIsLiveMapOpen(true)}
-                className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-                title={language === 'en' ? 'Track Rider on Live Map' : 'Jejak Rider di Peta Langsung'}
+                className="px-3 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                title={language === 'en' ? 'Track Rider Live Status & GPS' : 'Jejak Status Rider & GPS'}
               >
                 <Navigation className="w-3.5 h-3.5" />
-                <span>{language === 'en' ? 'Live Map' : 'Peta Langsung'}</span>
+                <span>{language === 'en' ? 'Live Status' : 'Status Langsung'}</span>
               </button>
 
+              {/* Call Rider Button */}
               <a
                 href="tel:0123456789"
-                className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                id="order-page-rider-card-call-btn"
+                className="px-3 py-1.5 sm:py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                title={language === 'en' ? 'Call Rider' : 'Hubungi Rider'}
               >
                 <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{t.contactRider}</span>
+                <span>{language === 'en' ? 'Call' : 'Telefon'}</span>
               </a>
+
+              {/* WhatsApp Button */}
+              <a
+                href="https://wa.me/60123456789"
+                id="order-page-rider-card-whatsapp-btn"
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 sm:py-2 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-transform cursor-pointer"
+                title="WhatsApp"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </a>
+
+              {/* View Order Button */}
+              <button
+                id="order-page-rider-card-receipt-btn"
+                type="button"
+                onClick={() => setIsReceiptOpen(true)}
+                className="px-3 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                title={language === 'en' ? 'View Order Details & Receipt' : 'Lihat Butiran & Resit Pesanan'}
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>{language === 'en' ? 'View Order' : 'Lihat Pesanan'}</span>
+              </button>
             </div>
           </div>
 

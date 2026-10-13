@@ -28,11 +28,16 @@ import {
   X,
   Send,
   Zap,
-  Download
+  Download,
+  FileSpreadsheet,
+  Filter,
+  ArrowUpDown,
+  Check
 } from 'lucide-react';
 import { Order, Language, FleetRider, RiderWalletTransaction } from '../../types';
 import { INITIAL_FLEET_RIDERS, INITIAL_WALLET_TRANSACTIONS } from '../../data/adminInitialData';
 import { exportRiderWalletStatementPDF } from '../../utils/pdfGenerator';
+import { exportOrdersReconciliationCSV } from '../../utils/orderCsvExport';
 
 interface AdminDispatchTabProps {
   orders: Order[];
@@ -218,6 +223,136 @@ export const AdminDispatchTab: React.FC<AdminDispatchTabProps> = ({
   const totalCodHeld = fleetRiders.reduce((acc, r) => acc + (r.codCollected || 0), 0);
   const activeRidersCount = fleetRiders.filter((r) => r.status !== 'offline').length;
 
+  // Filter States for Orders Manifest & Financial Reconciliation
+  const [orderSearchTerm, setOrderSearchTerm] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState<string>('all');
+  const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all');
+  const [orderSortBy, setOrderSortBy] = useState<'newest' | 'oldest' | 'highest_value' | 'lowest_value'>('newest');
+
+  // Filter Matching Helper
+  const isDateMatching = (createdAt: string | undefined, filter: typeof orderDateFilter) => {
+    if (filter === 'all' || !createdAt) return true;
+    try {
+      const orderDate = new Date(createdAt);
+      if (isNaN(orderDate.getTime())) return true;
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(startOfToday.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      if (filter === 'today') {
+        return orderDate >= startOfToday;
+      }
+      if (filter === 'yesterday') {
+        return orderDate >= startOfYesterday && orderDate < startOfToday;
+      }
+      if (filter === '7days') {
+        return orderDate >= sevenDaysAgo;
+      }
+      if (filter === '30days') {
+        return orderDate >= thirtyDaysAgo;
+      }
+    } catch {
+      return true;
+    }
+    return true;
+  };
+
+  const filteredOrders = orders.filter((order) => {
+    // Search filter
+    if (orderSearchTerm.trim()) {
+      const term = orderSearchTerm.toLowerCase().trim();
+      const matchOrderNum = (order.orderNumber || '').toLowerCase().includes(term);
+      const matchCustomer = (order.deliveryAddress?.recipientName || '').toLowerCase().includes(term);
+      const matchPhone = (order.deliveryAddress?.phone || '').toLowerCase().includes(term);
+      const matchStreet = (order.deliveryAddress?.street || '').toLowerCase().includes(term);
+      const matchCity = (order.deliveryAddress?.city || '').toLowerCase().includes(term);
+      const matchItems = order.items.some((item) =>
+        (item.product?.nameEn || item.product?.nameMs || '').toLowerCase().includes(term)
+      );
+      if (!matchOrderNum && !matchCustomer && !matchPhone && !matchStreet && !matchCity && !matchItems) {
+        return false;
+      }
+    }
+
+    // Status filter
+    if (orderStatusFilter !== 'all') {
+      const s = (order.status || '').toLowerCase();
+      if (orderStatusFilter === 'delivered' && (s !== 'delivered' && s !== 'completed')) return false;
+      if (orderStatusFilter === 'out_for_delivery' && s !== 'out_for_delivery') return false;
+      if (orderStatusFilter === 'packing' && (s !== 'packing' && s !== 'preparing')) return false;
+      if (orderStatusFilter === 'submitted' && (s !== 'submitted' && s !== 'received')) return false;
+      if (orderStatusFilter === 'cancelled' && s !== 'cancelled') return false;
+    }
+
+    // Payment method filter
+    if (orderPaymentFilter !== 'all') {
+      if ((order.paymentMethod || '').toUpperCase() !== orderPaymentFilter.toUpperCase()) {
+        return false;
+      }
+    }
+
+    // Date filter
+    if (!isDateMatching(order.createdAt, orderDateFilter)) {
+      return false;
+    }
+
+    return true;
+  }).sort((a, b) => {
+    if (orderSortBy === 'highest_value') {
+      return (b.total || 0) - (a.total || 0);
+    }
+    if (orderSortBy === 'lowest_value') {
+      return (a.total || 0) - (b.total || 0);
+    }
+    if (orderSortBy === 'oldest') {
+      return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+    }
+    // newest (default)
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
+
+  const filteredTotalAmount = filteredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const isFilterActive =
+    orderSearchTerm.trim() !== '' ||
+    orderStatusFilter !== 'all' ||
+    orderPaymentFilter !== 'all' ||
+    orderDateFilter !== 'all';
+
+  const handleResetFilters = () => {
+    setOrderSearchTerm('');
+    setOrderStatusFilter('all');
+    setOrderPaymentFilter('all');
+    setOrderDateFilter('all');
+    setOrderSortBy('newest');
+  };
+
+  const handleExportFilteredOrders = () => {
+    if (filteredOrders.length === 0) {
+      showToast(
+        language === 'en'
+          ? 'No filtered orders available to export.'
+          : 'Tiada pesanan ditapis untuk dimuat turun.'
+      );
+      return;
+    }
+
+    const result = exportOrdersReconciliationCSV(filteredOrders, {
+      statusFilter: orderStatusFilter,
+      paymentFilter: orderPaymentFilter,
+      dateFilter: orderDateFilter,
+      searchQuery: orderSearchTerm,
+    });
+
+    showToast(
+      language === 'en'
+        ? `Successfully exported ${result.count} filtered orders (RM ${result.totalAmount.toFixed(2)}) to CSV for financial reconciliation.`
+        : `Berjaya memuat turun ${result.count} pesanan (RM ${result.totalAmount.toFixed(2)}) ke CSV untuk penyelarasan kewangan.`
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast */}
@@ -300,13 +435,26 @@ export const AdminDispatchTab: React.FC<AdminDispatchTabProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-gray-500 font-medium px-2">
+        <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 font-medium px-2">
+          <button
+            type="button"
+            id="quick-export-orders-csv-btn"
+            data-testid="quick-export-orders-csv-btn"
+            onClick={handleExportFilteredOrders}
+            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title={language === 'en' ? 'Export currently filtered orders to CSV for reconciliation' : 'Muat turun pesanan ditapis ke CSV untuk penyelarasan kewangan'}
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-100" />
+            <span className="hidden sm:inline">{language === 'en' ? 'Export Orders CSV' : 'Eksport CSV'}</span>
+            <span className="sm:hidden font-mono text-[11px]">CSV</span>
+          </button>
+          <span className="hidden sm:inline">•</span>
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             <span className="font-bold text-emerald-700">{activeRidersCount} Active Riders</span>
           </span>
-          <span>•</span>
-          <span className="hidden sm:inline">Bangsar South Central Hub</span>
+          <span className="hidden lg:inline">•</span>
+          <span className="hidden lg:inline">Bangsar South Central Hub</span>
         </div>
       </div>
 
@@ -948,137 +1096,352 @@ export const AdminDispatchTab: React.FC<AdminDispatchTabProps> = ({
         </div>
       )}
 
-      {/* VIEW 4: ALL ORDERS TABLE */}
+      {/* VIEW 4: ALL ORDERS TABLE & FINANCIAL RECONCILIATION */}
       {activeTab === 'table' && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-black text-gray-900 text-sm flex items-center gap-2">
-              <TableIcon className="w-4 h-4 text-emerald-600" />
-              <span>Full Store Dispatch Orders Manifest</span>
-            </h3>
-            <span className="text-xs text-gray-400 font-medium">{orders.length} total orders</span>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden space-y-0">
+          {/* Header & Export Action */}
+          <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-gray-50/80 via-white to-emerald-50/20">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+                  <TableIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-gray-900 text-sm sm:text-base flex items-center gap-2">
+                    <span>{language === 'en' ? 'Full Store Orders Manifest & Reconciliation' : 'Manifes & Penyelarasan Pesanan Kedai'}</span>
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300/60">
+                      Audit CSV
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {language === 'en'
+                      ? 'Filter orders by status, payment method, date or keywords, and export to CSV for financial reconciliation.'
+                      : 'Tapis pesanan mengikut status, kaedah pembayaran, tarikh atau kata kunci, dan eksport ke CSV untuk penyelarasan.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Export Currently Filtered Orders Button */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                id="export-filtered-orders-csv-btn"
+                data-testid="export-filtered-orders-csv-btn"
+                onClick={handleExportFilteredOrders}
+                disabled={filteredOrders.length === 0}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-white font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/20"
+                title={
+                  language === 'en'
+                    ? `Export ${filteredOrders.length} currently filtered orders into CSV for financial reconciliation`
+                    : `Eksport ${filteredOrders.length} pesanan ditapis ke CSV`
+                }
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+                <span>
+                  {language === 'en'
+                    ? `Export Filtered Orders (${filteredOrders.length} CSV)`
+                    : `Eksport Pesanan Ditapis (${filteredOrders.length} CSV)`}
+                </span>
+              </button>
+            </div>
           </div>
 
+          {/* Interactive Filter Toolbar */}
+          <div className="p-4 bg-gray-50/70 border-b border-gray-200/80 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+              {/* 1. Search Query Input */}
+              <div className="relative lg:col-span-2">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  id="orders-search-input"
+                  data-testid="orders-search-input"
+                  value={orderSearchTerm}
+                  onChange={(e) => setOrderSearchTerm(e.target.value)}
+                  placeholder={
+                    language === 'en'
+                      ? 'Search Order ID, customer, phone, street, product...'
+                      : 'Cari No Pesanan, pelanggan, telefon, jalan, produk...'
+                  }
+                  className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-600 shadow-2xs font-medium"
+                />
+                {orderSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setOrderSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* 2. Order Status Filter */}
+              <div>
+                <select
+                  id="orders-status-filter"
+                  data-testid="orders-status-filter"
+                  value={orderStatusFilter}
+                  onChange={(e) => setOrderStatusFilter(e.target.value)}
+                  className="w-full py-2 px-3 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-600 shadow-2xs font-bold cursor-pointer"
+                >
+                  <option value="all">{language === 'en' ? 'All Statuses' : 'Semua Status'}</option>
+                  <option value="submitted">{language === 'en' ? 'Received / Submitted' : 'Diterima'}</option>
+                  <option value="packing">{language === 'en' ? 'Packing / In Prep' : 'Sedang Dibungkus'}</option>
+                  <option value="out_for_delivery">{language === 'en' ? 'Out for Delivery' : 'Dalam Penghantaran'}</option>
+                  <option value="delivered">{language === 'en' ? 'Delivered / Settled' : 'Selesai Dihantar'}</option>
+                  <option value="cancelled">{language === 'en' ? 'Cancelled / Void' : 'Dibatalkan'}</option>
+                </select>
+              </div>
+
+              {/* 3. Payment Method Filter */}
+              <div>
+                <select
+                  id="orders-payment-filter"
+                  data-testid="orders-payment-filter"
+                  value={orderPaymentFilter}
+                  onChange={(e) => setOrderPaymentFilter(e.target.value)}
+                  className="w-full py-2 px-3 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-600 shadow-2xs font-bold cursor-pointer"
+                >
+                  <option value="all">{language === 'en' ? 'All Payment Types' : 'Semua Kaedah Bayaran'}</option>
+                  <option value="FPX">DuitNow / FPX Online Banking</option>
+                  <option value="COD">Cash on Delivery (COD)</option>
+                  <option value="TNG">Touch &apos;n Go eWallet</option>
+                </select>
+              </div>
+
+              {/* 4. Date Range Filter & Sort */}
+              <div className="flex gap-2">
+                <select
+                  id="orders-date-filter"
+                  data-testid="orders-date-filter"
+                  value={orderDateFilter}
+                  onChange={(e) => setOrderDateFilter(e.target.value as any)}
+                  className="flex-1 py-2 px-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-600 shadow-2xs font-bold cursor-pointer"
+                >
+                  <option value="all">{language === 'en' ? 'All Time' : 'Semua Masa'}</option>
+                  <option value="today">{language === 'en' ? 'Today' : 'Hari Ini'}</option>
+                  <option value="yesterday">{language === 'en' ? 'Yesterday' : 'Semalam'}</option>
+                  <option value="7days">{language === 'en' ? 'Past 7 Days' : '7 Hari Lalu'}</option>
+                  <option value="30days">{language === 'en' ? 'Past 30 Days' : '30 Hari Lalu'}</option>
+                </select>
+
+                <select
+                  id="orders-sort-filter"
+                  data-testid="orders-sort-filter"
+                  value={orderSortBy}
+                  onChange={(e) => setOrderSortBy(e.target.value as any)}
+                  className="py-2 px-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-600 shadow-2xs font-bold cursor-pointer"
+                  title="Sort orders"
+                >
+                  <option value="newest">{language === 'en' ? 'Newest' : 'Terbaharu'}</option>
+                  <option value="oldest">{language === 'en' ? 'Oldest' : 'Terlama'}</option>
+                  <option value="highest_value">{language === 'en' ? 'RM High' : 'RM Tinggi'}</option>
+                  <option value="lowest_value">{language === 'en' ? 'RM Low' : 'RM Rendah'}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Reconciliation Filter Summary Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-gray-700">
+                  {language === 'en' ? 'Showing' : 'Menunjukkan'}{' '}
+                  <span className="text-emerald-700 font-black">{filteredOrders.length}</span> {language === 'en' ? 'of' : 'daripada'}{' '}
+                  <span className="text-gray-900 font-bold">{orders.length}</span> {language === 'en' ? 'total orders' : 'jumlah pesanan'}
+                </span>
+                <span className="text-gray-300">•</span>
+                <span className="text-gray-600">
+                  {language === 'en' ? 'Reconciliation Total:' : 'Jumlah Penyelarasan:'}{' '}
+                  <span className="font-black text-emerald-700 font-mono text-sm">
+                    RM {filteredTotalAmount.toFixed(2)}
+                  </span>
+                </span>
+
+                {isFilterActive && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[11px] font-bold">
+                    <Filter className="w-3 h-3" />
+                    <span>{language === 'en' ? 'Filters Active' : 'Tapisan Aktif'}</span>
+                  </span>
+                )}
+              </div>
+
+              {isFilterActive && (
+                <button
+                  type="button"
+                  id="reset-orders-filters-btn"
+                  onClick={handleResetFilters}
+                  className="text-xs font-bold text-gray-500 hover:text-rose-600 flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>{language === 'en' ? 'Reset Filters' : 'Tetapkan Semula'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Table Container */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Order ID</th>
-                  <th className="py-3 px-3">Customer</th>
-                  <th className="py-3 px-3">Address</th>
-                  <th className="py-3 px-3">Items</th>
-                  <th className="py-3 px-3">Total</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 font-medium">
-                {orders.map((order) => {
-                  const isDelivered = order.status === 'delivered' || order.status === 'completed';
-                  const isOut = order.status === 'out_for_delivery';
-                  const isPacking = order.status === 'packing';
-                  const isSubmitted = order.status === 'submitted' || order.status === 'received';
+            {filteredOrders.length === 0 ? (
+              <div className="py-12 px-4 text-center space-y-3 bg-gray-50/50">
+                <div className="w-12 h-12 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mx-auto">
+                  <Search className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-black text-gray-800 text-sm">
+                    {language === 'en' ? 'No orders match selected criteria' : 'Tiada pesanan sepadan dengan tapisan'}
+                  </h4>
+                  <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
+                    {language === 'en'
+                      ? 'Try clearing your search keyword, changing the payment method filter, or expanding the date range.'
+                      : 'Cuba kosongkan kata kunci carian, tukar kaedah pembayaran atau luaskan julat tarikh.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="px-4 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  {language === 'en' ? 'Reset All Filters' : 'Set Semula Semua Tapisan'}
+                </button>
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Order Ref / ID</th>
+                    <th className="py-3 px-3">Customer & Phone</th>
+                    <th className="py-3 px-3">Delivery Address</th>
+                    <th className="py-3 px-3">Items</th>
+                    <th className="py-3 px-3">Payment</th>
+                    <th className="py-3 px-3">Gross Total</th>
+                    <th className="py-3 px-3">Order Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 font-medium">
+                  {filteredOrders.map((order) => {
+                    const isDelivered = order.status === 'delivered' || order.status === 'completed';
+                    const isOut = order.status === 'out_for_delivery';
+                    const isPacking = order.status === 'packing';
+                    const isSubmitted = order.status === 'submitted' || order.status === 'received';
+                    const isCancelled = order.status === 'cancelled';
 
-                  return (
-                    <tr key={order.id} className="hover:bg-gray-50/80 transition-colors">
-                      <td className="py-3 px-4">
-                        <span className="font-black text-gray-900 block">{order.orderNumber}</span>
-                        <span className="text-[10px] text-gray-400 font-mono">
-                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Today'}
-                        </span>
-                      </td>
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="font-black text-gray-900 block font-mono">{order.orderNumber || order.id}</span>
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today'}
+                          </span>
+                        </td>
 
-                      <td className="py-3 px-3">
-                        <p className="font-bold text-gray-900 truncate">
-                          {order.deliveryAddress?.recipientName || 'Customer'}
-                        </p>
-                        <span className="text-xs font-mono text-gray-500">
-                          {order.deliveryAddress?.phone || '—'}
-                        </span>
-                      </td>
+                        <td className="py-3 px-3">
+                          <p className="font-bold text-gray-900 truncate">
+                            {order.deliveryAddress?.recipientName || 'Customer'}
+                          </p>
+                          <span className="text-xs font-mono text-gray-500">
+                            {order.deliveryAddress?.phone || '—'}
+                          </span>
+                        </td>
 
-                      <td className="py-3 px-3">
-                        <p className="text-xs text-gray-800 line-clamp-1">
-                          {order.deliveryAddress?.street || 'Central Klang Valley'}
-                        </p>
-                        <span className="text-[11px] text-gray-400 block">
-                          {order.deliveryAddress?.city || 'Kuala Lumpur'}
-                        </span>
-                      </td>
+                        <td className="py-3 px-3 max-w-[200px]">
+                          <p className="text-xs text-gray-800 line-clamp-1">
+                            {order.deliveryAddress?.street || 'Central Klang Valley'}
+                          </p>
+                          <span className="text-[11px] text-gray-400 block truncate">
+                            {order.deliveryAddress?.city || 'Kuala Lumpur'} {order.deliveryAddress?.postcode ? `(${order.deliveryAddress.postcode})` : ''}
+                          </span>
+                        </td>
 
-                      <td className="py-3 px-3">
-                        <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-xs">
-                          {order.items.length} {language === 'en' ? 'items' : 'item'}
-                        </span>
-                      </td>
+                        <td className="py-3 px-3">
+                          <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded text-xs inline-block">
+                            {order.items.length} {language === 'en' ? 'items' : 'item'}
+                          </span>
+                        </td>
 
-                      <td className="py-3 px-3">
-                        <span className="font-black text-emerald-700 text-sm">
-                          RM {order.total.toFixed(2)}
-                        </span>
-                      </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                            {order.paymentMethod || 'FPX'}
+                          </span>
+                        </td>
 
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-                            isDelivered
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : isOut
-                              ? 'bg-purple-100 text-purple-800 animate-pulse'
-                              : isPacking
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}
-                        >
-                          {order.status}
-                        </span>
-                      </td>
+                        <td className="py-3 px-3">
+                          <span className="font-black text-emerald-700 text-sm font-mono block">
+                            RM {order.total.toFixed(2)}
+                          </span>
+                          {order.deliveryFee > 0 && (
+                            <span className="text-[10px] text-gray-400 block font-mono">
+                              fee: RM {order.deliveryFee.toFixed(2)}
+                            </span>
+                          )}
+                        </td>
 
-                      <td className="py-3 px-4 text-right whitespace-nowrap space-x-1">
-                        {isSubmitted && (
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                              isDelivered
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : isOut
+                                ? 'bg-purple-100 text-purple-800 animate-pulse'
+                                : isPacking
+                                ? 'bg-amber-100 text-amber-800'
+                                : isCancelled
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 text-right whitespace-nowrap space-x-1">
+                          {isSubmitted && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateOrderStatus(order.id, 'packing')}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Pack
+                            </button>
+                          )}
+                          {isPacking && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateOrderStatus(order.id, 'out_for_delivery')}
+                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Dispatch
+                            </button>
+                          )}
+                          {isOut && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateOrderStatus(order.id, 'delivered')}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Complete
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => onUpdateOrderStatus(order.id, 'packing')}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            onClick={() => {
+                              setReassignOrder(order);
+                              setTargetRiderId(fleetRiders[0]?.id || '');
+                            }}
+                            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            title="Reassign Rider"
                           >
-                            Pack
+                            Reassign
                           </button>
-                        )}
-                        {isPacking && (
-                          <button
-                            type="button"
-                            onClick={() => onUpdateOrderStatus(order.id, 'out_for_delivery')}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                          >
-                            Dispatch
-                          </button>
-                        )}
-                        {isOut && (
-                          <button
-                            type="button"
-                            onClick={() => onUpdateOrderStatus(order.id, 'delivered')}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                          >
-                            Complete
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReassignOrder(order);
-                            setTargetRiderId(fleetRiders[0]?.id || '');
-                          }}
-                          className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                          title="Reassign Rider"
-                        >
-                          Reassign
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}

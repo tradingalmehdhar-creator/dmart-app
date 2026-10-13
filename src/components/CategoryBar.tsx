@@ -18,6 +18,14 @@ import {
 import { MainCategory, SubCategory, Language } from '../types';
 import { translations, mainCategoryConfig } from '../data/translations';
 
+const parseEmojiAndText = (label: string): { emoji?: string; text: string } => {
+  const match = label.match(/^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji})\s*(.*)$/u);
+  if (match) {
+    return { emoji: match[1], text: match[2] };
+  }
+  return { text: label };
+};
+
 interface CategoryBarProps {
   selectedCategory: MainCategory;
   onSelectCategory: (category: MainCategory) => void;
@@ -707,46 +715,53 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
 
       {/* Secondary Sub-Category Filter Pills (When any category with subcategories is selected) */}
       {selectedCategory !== 'all' && subCategories.length > 0 && (
-        <div className="bg-emerald-50/50 border-t border-emerald-100/60 py-1.5">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white border-t border-gray-100 py-1">
+          <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8">
+            {/* Subcategory Filter Horizontal Scrollbar */}
             <div
-              className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 no-scrollbar scrollbar-hide text-xs touch-pan-x overscroll-x-contain"
+              className="flex items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-none scrollbar-hide no-scrollbar py-2 px-1 w-full touch-pan-x"
               style={{
                 WebkitOverflowScrolling: 'touch',
                 scrollBehavior: 'smooth',
+                overscrollBehaviorX: 'contain',
               }}
             >
-              <span className="text-[11px] font-bold text-emerald-900 mr-1 shrink-0">
-                {t.filterBy}:
+              {/* Label - Fixed & shrink-0 to maintain position */}
+              <span className="text-xs font-semibold text-gray-500 flex-shrink-0">
+                {language === 'en' ? 'Filter by subcategory:' : 'Tapis mengikut subkategori:'}
               </span>
 
+              {/* Active / Inactive Subcategory Chips */}
               <button
                 type="button"
                 onClick={() => onSelectSubCategory('all')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
+                className={`flex-shrink-0 px-4 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                   selectedSubCategory === 'all'
-                    ? 'bg-emerald-700 text-white shadow-2xs'
-                    : 'bg-white hover:bg-emerald-100 text-gray-700 border border-gray-200'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {t.allSubcategories}
+                {language === 'en' ? 'All in this Department' : 'Semua di Jabatan Ini'}
               </button>
 
               {subCategories.map((sub) => {
                 const isSelected = selectedSubCategory === sub.id;
-                const name = language === 'en' ? sub.en : sub.ms;
+                const rawName = language === 'en' ? sub.en : sub.ms;
+                const { emoji, text } = parseEmojiAndText(rawName);
+
                 return (
                   <button
                     key={sub.id}
                     type="button"
                     onClick={() => onSelectSubCategory(sub.id)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-emerald-700 text-white shadow-2xs'
-                        : 'bg-white hover:bg-emerald-100 text-gray-700 border border-gray-200'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    {name}
+                    {emoji && <span>{emoji}</span>}
+                    <span>{text}</span>
                   </button>
                 );
               })}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Globe, UserCheck, User, Store, Sparkles, Clock, Package, Heart, History, Bot, ScanBarcode, Menu, QrCode, Share2, Sliders } from 'lucide-react';
+import { ShoppingCart, Search, Globe, UserCheck, User, Store, Sparkles, Clock, Package, Heart, History, Bot, ScanBarcode, Menu, QrCode, Share2, Sliders, Bell } from 'lucide-react';
 import { Language, UserProfile, DeliveryAddress, DeliveryPartnerApplication, PromoConfig, StorefrontCopySettings } from '../types';
 import { translations } from '../data/translations';
 import { getLoyaltyTier } from '../utils/loyaltyTiers';
@@ -38,6 +38,8 @@ interface NavbarProps {
   loyaltyPoints?: number;
   onOpenLoyaltyModal?: () => void;
   pointsNotification?: { id: number; points: number } | null;
+  onOpenNotifications?: () => void;
+  notificationCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -74,6 +76,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   loyaltyPoints = 150,
   onOpenLoyaltyModal,
   pointsNotification,
+  onOpenNotifications,
+  notificationCount = 0,
 }) => {
   const t = translations[language];
   const currentTier = getLoyaltyTier(loyaltyPoints);
@@ -267,6 +271,30 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               )}
             </button>
+
+            {/* Real-time Order Alerts & Push Notifications Bell Button */}
+            {onOpenNotifications && (
+              <button
+                id="top-nav-notifications-btn"
+                type="button"
+                onClick={onOpenNotifications}
+                aria-label={
+                  language === 'en'
+                    ? `Order Alerts & Notifications (${notificationCount} alerts)`
+                    : `Pemberitahuan Pesanan (${notificationCount} amaran)`
+                }
+                title={language === 'en' ? 'Order Alerts & Push Notifications' : 'Pemberitahuan Pesanan & Amaran'}
+                className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 md:px-2.5 lg:px-3 py-1.5 rounded-xl border border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 font-bold text-xs shadow-2xs transition-all active:scale-95 relative shrink-0 whitespace-nowrap cursor-pointer touch-manipulation"
+              >
+                <Bell className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span className="hidden sm:inline">{language === 'en' ? 'Alerts' : 'Amaran'}</span>
+                {notificationCount > 0 && (
+                  <span className="bg-amber-500 text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full leading-none animate-pulse">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* 4. Favorites Quick Filter Button */}
             {onToggleFavoritesFilter && (

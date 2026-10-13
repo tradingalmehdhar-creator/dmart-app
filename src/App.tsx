@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Sparkles,
   ShoppingBag,
@@ -29,7 +29,8 @@ import {
   PackageCheck,
   Navigation,
   Heart,
-  Lock
+  Lock,
+  Bell
 } from 'lucide-react';
 import {
   Language,
@@ -54,10 +55,11 @@ import {
   DEFAULT_STOREFRONT_COPY,
   LoyaltyTransaction,
   GamificationBadge,
+  OrderStatusNotification,
 } from './types';
 import { getStoredLoyaltyTransactions, saveLoyaltyTransactions } from './utils/loyaltyTransactions';
 import { computeUserBadges } from './utils/gamificationBadges';
-import { products, loadProducts, saveProducts, updateProductPrice, updateProductAvailability } from './data/products';
+import { products, initialProducts, loadProducts, saveProducts, updateProductPrice, updateProductAvailability } from './data/products';
 import { translations, mainCategoryConfig, MALAYSIAN_PRESET_LOCATIONS } from './data/translations';
 import { AVAILABLE_VOUCHERS, defaultPromoConfig, loadPromoConfig, savePromoConfig } from './data/vouchers';
 import { INITIAL_DELIVERY_ORDERS } from './data/deliveryOrders';
@@ -87,6 +89,9 @@ import { DeliveryMapPicker } from './components/DeliveryMapPicker';
 import { CheckoutModal } from './components/CheckoutModal';
 import { OrderTrackingModal } from './components/OrderTrackingModal';
 import { OrderHistoryView } from './components/OrderHistoryView';
+import { OrderReceiptModal } from './components/OrderReceiptModal';
+import { OrderStatusToastContainer } from './components/OrderStatusToastContainer';
+import { NotificationCenterModal } from './components/NotificationCenterModal';
 import { LiveDeliveryMapModal } from './components/LiveDeliveryMapModal';
 import { SplashScreen } from './components/SplashScreen';
 import { GeminiChatModal } from './components/GeminiChatModal';
@@ -98,6 +103,15 @@ import { SlimOrderTrackingBar } from './components/SlimOrderTrackingBar';
 import { AdminAuthModal } from './components/AdminAuthModal';
 import { StorefrontBanners } from './components/StorefrontBanners';
 import { LoyaltyPointsModal } from './components/LoyaltyPointsModal';
+import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
+import { playNotificationChime } from './utils/audioChime';
+import {
+  setupFcmForegroundListener,
+  triggerNativeBrowserNotification,
+  getStoredNotifications,
+  saveNotificationToHistory,
+  clearStoredNotifications,
+} from './services/fcmNotificationService';
 import {
   testConnection,
   syncUserToFirestore,
@@ -105,6 +119,9 @@ import {
   updateOrderOtpVerificationInFirestore,
   subscribeToStorefrontBanners,
   subscribeToStorefrontCopy,
+  subscribeToCatalogProducts,
+  syncProductToFirestore,
+  seedInitialProductsIfEmpty,
   executeStrictSignOut
 } from './firebase_config';
 
@@ -253,6 +270,7 @@ export default function App() {
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState(false);
   const [isLoyaltyModalOpen, setIsLoyaltyModalOpen] = useState(false);
+  const [isPrivacyPolicyOpen, setIsPrivacyPolicyOpen] = useState(false);
 
   // Loyalty Points State (Default 150 points for demo & active shopping, persisted in localStorage)
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(() => {
@@ -504,8 +522,178 @@ export default function App() {
   const [selectedDeliveryOrder, setSelectedDeliveryOrder] = useState<DeliveryJobOrder | null>(null);
   const [isDeliveryOrderDetailsOpen, setIsDeliveryOrderDetailsOpen] = useState(false);
 
+  // Real-time Push Notifications & In-App Toast Alerts state (Firebase Cloud Messaging)
+  const [orderNotifications, setOrderNotifications] = useState<OrderStatusNotification[]>(() => {
+    return getStoredNotifications();
+  });
+  const [activeToasts, setActiveToasts] = useState<OrderStatusNotification[]>([]);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('dmart_sound_enabled') !== 'false';
+  });
+  const previousStatusRef = useRef<Record<string, Order['status']>>({});
+
+  // Direct Order Receipt Modal state
+  const [receiptModalOrder, setReceiptModalOrder] = useState<Order | null>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+
   // Translations helper
   const t = translations[language];
+
+  // Trigger order status transition alert
+  const triggerOrderTransitionAlert = useCallback(
+    (order: Order, previousStatus?: Order['status'], newStatus?: Order['status']) => {
+      const status = newStatus || order.status;
+      const orderNumber = order.orderNumber || order.id;
+
+      let titleEn = 'Order Status Updated';
+      let titleMs = 'Status Pesanan Dikemaskini';
+      let bodyEn = `Order #${orderNumber} is now ${status.replace(/_/g, ' ')}.`;
+      let bodyMs = `Pesanan #${orderNumber} kini berstatus ${status.replace(/_/g, ' ')}.`;
+      let sound: 'bell_chime' | 'bicycle_bell' | 'cash_register' | 'digital_ping' = 'digital_ping';
+      let type: OrderStatusNotification['type'] = 'info';
+      let eta: string | undefined = undefined;
+
+      if (status === 'packing' || status === 'preparing') {
+        type = 'preparing';
+        titleEn = 'Order Preparing / Packing 📦';
+        titleMs = 'Pesanan Sedang Disediakan 📦';
+        bodyEn = `Order #${orderNumber} is being packed with fresh grocery items at our fulfillment store.`;
+        bodyMs = `Pesanan #${orderNumber} sedang dibungkus dengan barangan segar di pusat penyediaan kami.`;
+        sound = 'bell_chime';
+      } else if (status === 'out_for_delivery' || status === 'picked_up') {
+        type = 'out_for_delivery';
+        titleEn = 'Rider Out For Delivery! 🛵';
+        titleMs = 'Rider Sedang Menghantar! 🛵';
+        bodyEn = `Order #${orderNumber} has been dispatched with our rider and is on the way!`;
+        bodyMs = `Pesanan #${orderNumber} telah dihantar bersama rider kami dan dalam perjalanan!`;
+        sound = 'bicycle_bell';
+        eta = '~15 - 20 mins';
+      } else if (status === 'delivered') {
+        type = 'delivered';
+        titleEn = 'Order Delivered Successfully! ✅';
+        titleMs = 'Pesanan Selamat Dihantar! ✅';
+        bodyEn = `Order #${orderNumber} has arrived at your address. Enjoy your fresh groceries!`;
+        bodyMs = `Pesanan #${orderNumber} telah selamat tiba di alamat anda. Selamat menikmati barangan segar anda!`;
+        sound = 'cash_register';
+      }
+
+      const notif: OrderStatusNotification = {
+        id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        orderId: order.id,
+        orderNumber,
+        previousStatus,
+        newStatus: status,
+        titleEn,
+        titleMs,
+        bodyEn,
+        bodyMs,
+        timestamp: new Date().toISOString(),
+        sound,
+        type,
+        eta,
+      };
+
+      // 1. Play audio chime if sound is enabled
+      if (notificationSoundEnabled) {
+        playNotificationChime(sound);
+      }
+
+      // 2. Trigger native OS / browser notification if permitted
+      const alertTitle = language === 'en' ? titleEn : titleMs;
+      const alertBody = language === 'en' ? bodyEn : bodyMs;
+      triggerNativeBrowserNotification(alertTitle, alertBody, orderNumber);
+
+      // 3. Trigger In-App floating toast
+      setActiveToasts((prev) => [notif, ...prev.slice(0, 2)]);
+
+      // 4. Save to notification log
+      setOrderNotifications((prev) => {
+        const updated = saveNotificationToHistory(notif);
+        return updated.length > 0 ? updated : [notif, ...prev];
+      });
+    },
+    [language, notificationSoundEnabled]
+  );
+
+  // Real-time FCM message listener
+  useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    setupFcmForegroundListener((payload) => {
+      const orderNum = payload.data?.orderNumber || activeOrder?.orderNumber || 'DM-ORDER';
+      const status = (payload.data?.status || 'packing') as Order['status'];
+      const dummyOrder = (activeOrder && activeOrder.orderNumber === orderNum ? activeOrder : {
+        id: orderNum,
+        orderNumber: orderNum,
+        status,
+      }) as Order;
+      triggerOrderTransitionAlert(dummyOrder, undefined, status);
+    }).then((unsub) => {
+      cleanup = unsub;
+    });
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [activeOrder, triggerOrderTransitionAlert]);
+
+  // Track activeOrder transitions in real-time
+  useEffect(() => {
+    if (!activeOrder) return;
+    const orderKey = activeOrder.id || activeOrder.orderNumber;
+    const prev = previousStatusRef.current[orderKey];
+    const curr = activeOrder.status;
+
+    if (prev && prev !== curr) {
+      triggerOrderTransitionAlert(activeOrder, prev, curr);
+    }
+    previousStatusRef.current[orderKey] = curr;
+  }, [activeOrder, triggerOrderTransitionAlert]);
+
+  // Sound preference persistence
+  useEffect(() => {
+    localStorage.setItem('dmart_sound_enabled', notificationSoundEnabled.toString());
+  }, [notificationSoundEnabled]);
+
+  const handleSimulateTransition = (simulatedStatus: 'packing' | 'out_for_delivery' | 'delivered') => {
+    const target = activeOrder || INITIAL_PAST_ORDERS[0];
+    if (target) {
+      const updatedOrder = {
+        ...target,
+        status: simulatedStatus,
+        orderStatus: simulatedStatus,
+      };
+      if (activeOrder) {
+        setActiveOrder(updatedOrder);
+        setTrackingOrder(updatedOrder);
+        localStorage.setItem('dmart_active_order', JSON.stringify(updatedOrder));
+      }
+      triggerOrderTransitionAlert(updatedOrder, target.status, simulatedStatus);
+    }
+  };
+
+  const handleOpenReceiptForOrder = (orderNumber: string) => {
+    const found = [activeOrder, ...orderHistory, ...storeOrders].find(
+      (o) => o && (o.orderNumber === orderNumber || o.id === orderNumber)
+    );
+    if (found) {
+      setReceiptModalOrder(found);
+      setIsReceiptModalOpen(true);
+    } else if (activeOrder) {
+      setReceiptModalOrder(activeOrder);
+      setIsReceiptModalOpen(true);
+    }
+  };
+
+  const handleTrackOrderFromAlert = (orderNumber: string) => {
+    const found = [activeOrder, ...orderHistory, ...storeOrders].find(
+      (o) => o && (o.orderNumber === orderNumber || o.id === orderNumber)
+    );
+    if (found) {
+      setTrackingOrder(found);
+    }
+    setIsTrackingOpen(true);
+  };
 
   // Connection test to Firestore database & rider default landing check on startup
   useEffect(() => {
@@ -539,6 +727,23 @@ export default function App() {
     const unsubscribe = subscribeToStorefrontCopy((cloudConfig) => {
       if (cloudConfig) {
         setStorefrontCopy(cloudConfig);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Real-time catalog products synchronization with Firestore
+  useEffect(() => {
+    // Seed initial product catalog to Firestore if collection is empty
+    seedInitialProductsIfEmpty(initialProducts);
+
+    const unsubscribe = subscribeToCatalogProducts((liveProducts) => {
+      if (liveProducts && liveProducts.length > 0) {
+        setCatalogProducts(liveProducts);
+        saveProducts(liveProducts);
       }
     });
 
@@ -628,6 +833,10 @@ export default function App() {
   const handleUpdateCatalogProducts = (updatedProducts: Product[]) => {
     setCatalogProducts(updatedProducts);
     saveProducts(updatedProducts);
+    // Real-time synchronization to Firestore
+    updatedProducts.forEach((p) => {
+      syncProductToFirestore(p);
+    });
   };
 
   const handleUpdatePromoSettings = (updatedConfig: PromoConfig) => {
@@ -660,6 +869,10 @@ export default function App() {
   };
 
   const handleUpdateStoreOrderStatus = (orderId: string, status: Order['status']) => {
+    const targetOrder = storeOrders.find((ord) => ord.id === orderId) || (activeOrder?.id === orderId ? activeOrder : null);
+    if (targetOrder && targetOrder.status !== status) {
+      triggerOrderTransitionAlert(targetOrder, targetOrder.status, status);
+    }
     setStoreOrders((prev) =>
       prev.map((ord) => (ord.id === orderId ? { ...ord, status, orderStatus: status } : ord))
     );
@@ -1291,6 +1504,8 @@ export default function App() {
           loyaltyPoints={loyaltyPoints}
           onOpenLoyaltyModal={() => handleOpenLoyaltyModal('tiers')}
           pointsNotification={pointsNotification}
+          onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+          notificationCount={orderNotifications.filter((n) => !n.read).length + activeToasts.length}
         />
       )}
 
@@ -1778,6 +1993,23 @@ export default function App() {
             <div className="flex items-center gap-2 text-[11px] text-gray-400 flex-wrap justify-center sm:justify-end">
               <span>{storefrontCopy.footerCopyrightNotice}</span>
               <span className="text-gray-300">•</span>
+              {/* Privacy Policy Link */}
+              <a
+                href="/privacy.html"
+                id="footer-privacy-policy-link"
+                data-testid="footer-privacy-policy-link"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                    e.preventDefault();
+                    setIsPrivacyPolicyOpen(true);
+                  }
+                }}
+                className="hover:underline text-gray-500 hover:text-emerald-700 transition-colors cursor-pointer"
+                title={language === 'en' ? 'D-Mart Privacy Policy' : 'Dasar Privasi D-Mart'}
+              >
+                {language === 'en' ? 'Privacy Policy' : 'Dasar Privasi'}
+              </a>
+              <span className="text-gray-300">•</span>
               {/* Discrete Admin Entry Point */}
               <button
                 type="button"
@@ -2196,6 +2428,8 @@ export default function App() {
         storeBadgeText={storefrontCopy.storeBadgeText}
         loyaltyPoints={loyaltyPoints}
         onOpenLoyaltyModal={() => handleOpenLoyaltyModal('tiers')}
+        onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+        notificationCount={orderNotifications.filter((n) => !n.read).length + activeToasts.length}
       />
 
       {/* Share App QR Code Modal with Download link and PNG Export */}
@@ -2217,6 +2451,55 @@ export default function App() {
         }}
         language={language}
         currentUser={user}
+      />
+
+      {/* Real-time In-App Toast Alerts Stack for Order Status Transitions */}
+      <OrderStatusToastContainer
+        notifications={activeToasts}
+        onDismiss={(id) => setActiveToasts((prev) => prev.filter((t) => t.id !== id))}
+        onTrackOrder={handleTrackOrderFromAlert}
+        onViewReceipt={handleOpenReceiptForOrder}
+        language={language}
+        soundEnabled={notificationSoundEnabled}
+        onToggleSound={() => setNotificationSoundEnabled((prev) => !prev)}
+      />
+
+      {/* Real-time Order Alerts & Push Notifications Center Modal */}
+      <NotificationCenterModal
+        isOpen={isNotificationCenterOpen}
+        onClose={() => setIsNotificationCenterOpen(false)}
+        notifications={orderNotifications}
+        onClearAll={() => {
+          clearStoredNotifications();
+          setOrderNotifications([]);
+          setActiveToasts([]);
+        }}
+        onTrackOrder={handleTrackOrderFromAlert}
+        onViewReceipt={handleOpenReceiptForOrder}
+        language={language}
+        soundEnabled={notificationSoundEnabled}
+        onToggleSound={() => setNotificationSoundEnabled((prev) => !prev)}
+        onSimulateTransition={handleSimulateTransition}
+      />
+
+      {/* Standalone Order Receipt Modal (Accessible from any Toast or Notification alert) */}
+      {receiptModalOrder && (
+        <OrderReceiptModal
+          isOpen={isReceiptModalOpen}
+          onClose={() => {
+            setIsReceiptModalOpen(false);
+            setReceiptModalOrder(null);
+          }}
+          order={receiptModalOrder}
+          language={language}
+        />
+      )}
+
+      {/* D-Mart Privacy Policy Modal (Bilingual PDPA 2010 Compliance) */}
+      <PrivacyPolicyModal
+        isOpen={isPrivacyPolicyOpen}
+        onClose={() => setIsPrivacyPolicyOpen(false)}
+        language={language}
       />
     </div>
   );

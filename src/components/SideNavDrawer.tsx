@@ -12,6 +12,7 @@ import {
   Share2,
   Sparkles,
   ExternalLink,
+  Bell,
 } from 'lucide-react';
 import { Language, UserProfile, DeliveryPartnerApplication } from '../types';
 import { QRCodeShareBanner } from './QRCodeShareBanner';
@@ -42,6 +43,8 @@ interface SideNavDrawerProps {
   storeBadgeText?: string;
   loyaltyPoints?: number;
   onOpenLoyaltyModal?: () => void;
+  onOpenNotifications?: () => void;
+  notificationCount?: number;
 }
 
 export const SideNavDrawer: React.FC<SideNavDrawerProps> = ({
@@ -69,6 +72,8 @@ export const SideNavDrawer: React.FC<SideNavDrawerProps> = ({
   storeBadgeText,
   loyaltyPoints = 150,
   onOpenLoyaltyModal,
+  onOpenNotifications,
+  notificationCount = 0,
 }) => {
   const isEn = language === 'en';
 
@@ -289,6 +294,28 @@ export const SideNavDrawer: React.FC<SideNavDrawerProps> = ({
               </span>
             )}
           </button>
+
+          {/* 3b. Order Alerts & Push Notifications */}
+          {onOpenNotifications && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenNotifications();
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-900 transition-all text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>{isEn ? 'Order Alerts & Notifications' : 'Pemberitahuan Pesanan'}</span>
+              </div>
+              {notificationCount > 0 && (
+                <span className="text-[10px] bg-amber-500 text-white font-black px-2 py-0.5 rounded-full animate-pulse">
+                  {notificationCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* 4. Wishlist / Favorites */}
           {onToggleFavoritesFilter && (

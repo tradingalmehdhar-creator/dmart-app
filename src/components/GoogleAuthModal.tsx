@@ -323,6 +323,17 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                   <Trash2 className="w-3.5 h-3.5 text-red-500" />
                   <span>{isEn ? 'Delete Account (Permanent)' : 'Padam Akaun (Kekal)'}</span>
                 </button>
+
+                <div className="pt-1 text-center">
+                  <a
+                    href="/privacy.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-gray-400 hover:text-emerald-700 hover:underline inline-block"
+                  >
+                    {isEn ? 'D-Mart Privacy Policy & Data Rights (PDPA)' : 'Dasar Privasi & Hak Data D-Mart (PDPA)'}
+                  </a>
+                </div>
               </div>
             </div>
           ) : (
@@ -465,10 +476,18 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                 </span>
               </button>
 
-              <div className="pt-2 border-t border-gray-100 flex items-center justify-center text-xs">
+              <div className="pt-2 border-t border-gray-100 flex flex-col items-center justify-center gap-1 text-xs">
                 <span className="text-[11px] text-gray-400">
                   🔒 {isEn ? 'Secured by Google & Firebase' : 'Dilindungi oleh Google & Firebase'}
                 </span>
+                <a
+                  href="/privacy.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-emerald-600 hover:text-emerald-700 hover:underline font-medium"
+                >
+                  {isEn ? 'D-Mart Privacy Policy & Data Rights (PDPA)' : 'Dasar Privasi & Hak Data D-Mart (PDPA)'}
+                </a>
               </div>
             </form>
           )}

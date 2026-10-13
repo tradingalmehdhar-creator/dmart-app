@@ -141,7 +141,7 @@ export const LiveDeliveryMapModal: React.FC<LiveDeliveryMapModalProps> = ({
         </div>
 
         {/* Live Map Canvas Screen */}
-        <div className="relative flex-1 min-h-[300px] sm:min-h-[380px] bg-[#e6e4df] overflow-hidden select-none">
+        <div className="relative flex-1 min-h-[240px] sm:min-h-[320px] md:min-h-[380px] bg-[#e6e4df] overflow-hidden select-none">
           {/* Base Vector Road Map Background */}
           <div
             className={`absolute inset-0 transition-transform duration-300 ${
@@ -329,76 +329,85 @@ export const LiveDeliveryMapModal: React.FC<LiveDeliveryMapModalProps> = ({
         </div>
 
         {/* Bottom Details & Quick Contact Bar */}
-        <div className="p-3.5 sm:p-4 bg-gray-50 border-t border-gray-200 shrink-0 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-3 sm:p-4 bg-gray-50 border-t border-gray-200 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             {/* Rider Identity */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 rounded-2xl bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center font-black text-emerald-900 text-sm shadow-xs shrink-0">
                 🛵
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h4 className="font-black text-sm text-gray-900">Azman bin Razak</h4>
-                  <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.2 rounded-full border border-emerald-200">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h4 className="font-black text-sm text-gray-900 truncate">Azman bin Razak</h4>
+                  <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.2 rounded-full border border-emerald-200 shrink-0">
                     Yamaha NVX • WXV 8492
                   </span>
                 </div>
-                <p className="text-xs text-gray-600 truncate max-w-xs">
+                <p className="text-xs text-gray-600 truncate max-w-xs sm:max-w-md">
                   {isEn ? 'Delivering to: ' : 'Hantar ke: '}
                   <span className="font-semibold text-gray-800">{recipientStreet}, {recipientCity}</span>
                 </p>
               </div>
             </div>
 
-            {/* Quick Action Buttons */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Bottom Action Button Bar */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-1 lg:pt-0">
+              {/* Live Status Button */}
               <button
                 type="button"
+                id="live-map-status-btn"
                 onClick={() => setIsPlaying((p) => !p)}
-                className="px-3 py-1.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-bold flex items-center gap-1 transition-all"
-                title="Play/Pause Movement Simulation"
+                className="px-3 py-1.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title={isEn ? 'Toggle Live Simulation Status' : 'Togol Status Simulasi Langsung'}
               >
                 {isPlaying ? <Clock className="w-3.5 h-3.5 text-emerald-600" /> : <Play className="w-3.5 h-3.5 text-emerald-600" />}
-                <span>{isPlaying ? (isEn ? 'Live On' : 'Aktif') : (isEn ? 'Paused' : 'Dijeda')}</span>
+                <span>{isPlaying ? (isEn ? 'Live Status' : 'Status Langsung') : (isEn ? 'Paused' : 'Dijeda')}</span>
               </button>
 
+              {/* Restart Simulation Button */}
               <button
                 type="button"
                 onClick={() => setProgress(20)}
-                className="p-1.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-gray-600"
-                title="Restart Simulation"
+                className="p-1.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-gray-600 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                title={isEn ? 'Restart Movement' : 'Mula Semula Simulasi'}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
 
+              {/* Call Button */}
               <a
                 href="tel:0123456789"
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+                id="live-map-call-btn"
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                title={isEn ? 'Call Rider' : 'Hubungi Rider'}
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>{isEn ? 'Call' : 'Telefon'}</span>
               </a>
 
+              {/* WhatsApp Button */}
               <a
                 href="https://wa.me/60123456789"
+                id="live-map-whatsapp-btn"
                 target="_blank"
                 rel="noreferrer"
-                className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                title="WhatsApp"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>WhatsApp</span>
               </a>
 
-              {/* View Order Receipt Action Button */}
+              {/* View Order Action Button */}
               <button
                 type="button"
                 id="live-map-view-order-receipt-btn"
                 onClick={() => setIsReceiptOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                 title={isEn ? 'View Order Receipt & Invoice' : 'Lihat Resit & Invois Pesanan'}
               >
                 <Receipt className="w-3.5 h-3.5" />
-                <span>{isEn ? 'View Order Receipt' : 'Lihat Resit'}</span>
+                <span>{isEn ? 'View Order' : 'Lihat Pesanan'}</span>
               </button>
             </div>
           </div>

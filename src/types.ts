@@ -227,8 +227,8 @@ export interface Order {
     tngPhone?: string;
     tngRef?: string;
   };
-  status: 'submitted' | 'received' | 'packing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
-  orderStatus?: 'submitted' | 'received' | 'packing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
+  status: 'submitted' | 'received' | 'packing' | 'preparing' | 'picked_up' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
+  orderStatus?: 'submitted' | 'received' | 'packing' | 'preparing' | 'picked_up' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
   estimatedDeliveryTime: string;
   estimatedDeliveryTimestamp?: number;
   deliveryOtp?: string;
@@ -250,6 +250,7 @@ export interface DeliveryPartnerApplication {
   address: string;
   vehicleType: 'motorcycle' | 'car' | 'van' | 'bicycle';
   plateNumber: string; // Vehicle / Motorcycle Registration Number
+  licenseNumber?: string;
   licenseDocName?: string;
   licenseDocUrl?: string;
   submittedAt: string;
@@ -402,6 +403,7 @@ export type AdminTabType =
   | 'merchants'
   | 'fleet'
   | 'settings'
+  | 'pdf_settings'
   | 'vault'
   | 'support'
   | 'analytics'
@@ -469,7 +471,9 @@ export interface DailyClosureRecord {
   drawerActualCash: number;
   variance: number;
   closedBy: string;
+  cashierName?: string;
   verifiedBy: string;
+  timestamp?: string;
   status: 'balanced' | 'flagged_variance' | 'pending_audit';
   notes: string;
 }
@@ -742,14 +746,37 @@ export interface SubAdminProfile {
   permissions: AdminPermissionSet;
 }
 
+export type PdfLogoPosition = 'left' | 'center' | 'right' | 'hidden';
+
 export interface PdfConfigSettings {
+  // 1. Top Header & Bottom Footer Text & Identity
   companyName: string;
   ssmRegistrationNumber: string;
   headerSubtitle: string;
+  customHeaderText?: string;
   officialAddress: string;
   supportContact: string;
   footerDisclaimer: string;
   certificateText: string;
+  signatureNoteText: string;
+  customFooterText?: string;
+
+  // Company Logo Positioning
+  logoPosition: PdfLogoPosition;
+  showCompanyLogo: boolean;
+
+  // 2. Margins, Padding & Section Spacing (in mm)
+  topMargin: number;       // distance from top / header height baseline
+  bottomMargin: number;    // reserved clearance from bottom of page
+  pagePadding: number;     // horizontal side margin in mm
+  sectionSpacing: number;  // vertical gap between sections to avoid overlap
+
+  // 3. Visibility Toggles
+  showLegalDisclaimer: boolean;
+  showSsmRegistration: boolean;
+  showSignatureNote: boolean;
+
+  // Metadata
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -758,10 +785,22 @@ export const DEFAULT_PDF_CONFIG: PdfConfigSettings = {
   companyName: 'D-mart Supermarket & Retail Logistics',
   ssmRegistrationNumber: '202301048821 (1542109-M)',
   headerSubtitle: 'FLEET LOGISTICS & COURIER DISPATCH • OFFICIAL TREASURY CLEARING & STATEMENTS',
+  customHeaderText: 'Fresh Grocery Logistics & Express Doorstep Delivery',
   officialAddress: 'Level 8, Menara D-mart, Bangsar South, 59200 Kuala Lumpur, Malaysia',
   supportContact: 'Phone: +60 3-8912 8820 • Email: treasury-ops@d-mart.my',
   footerDisclaimer: 'This official statement is generated directly from the D-mart Supermarket Retail & Fleet Operations Portal. Certified valid under the Malaysian Digital Signature Act 1997.',
   certificateText: 'OFFICIALLY AUDITED & CERTIFIED • D-MART RETAIL HOLDINGS SDN. BHD.',
+  signatureNoteText: 'This is a computer-generated document. No physical signature is required under Malaysian Digital Signature Act 1997.',
+  customFooterText: 'Thank you for choosing D-mart Malaysia • https://d-mart.my',
+  logoPosition: 'left',
+  showCompanyLogo: true,
+  topMargin: 12,
+  bottomMargin: 14,
+  pagePadding: 14,
+  sectionSpacing: 6,
+  showLegalDisclaimer: true,
+  showSsmRegistration: true,
+  showSignatureNote: true,
 };
 
 export interface StorefrontCopySettings {
@@ -836,6 +875,27 @@ export interface GamificationBadge {
   progressUnitMs: string;
   bonusPointsReward?: number;
   colorScheme: 'emerald' | 'amber' | 'purple' | 'blue' | 'rose' | 'orange';
+}
+
+export type NotificationSound = 'cash_register' | 'bell_chime' | 'digital_ping' | 'bicycle_bell';
+
+export interface OrderStatusNotification {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  previousStatus?: Order['status'];
+  newStatus: Order['status'];
+  titleEn: string;
+  titleMs: string;
+  bodyEn: string;
+  bodyMs: string;
+  timestamp: string;
+  read?: boolean;
+  sound?: NotificationSound;
+  type: 'preparing' | 'out_for_delivery' | 'delivered' | 'info';
+  eta?: string;
+  riderName?: string;
+  riderPhone?: string;
 }
 
 

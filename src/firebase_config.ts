@@ -19,6 +19,7 @@ import {
 import { getStorage } from 'firebase/storage';
 import rawConfig from '../firebase-applet-config.json';
 import {
+  Product,
   MerchantPartner,
   Order,
   DeliveryPartnerApplication,
@@ -31,6 +32,7 @@ import {
   DEFAULT_PDF_CONFIG,
   StorefrontCopySettings,
   DEFAULT_STOREFRONT_COPY,
+  LoyaltyTransaction,
 } from './types';
 import { INITIAL_MARKETING_BANNERS } from './data/adminInitialData';
 
@@ -75,9 +77,11 @@ export const storage = getStorage(firebaseApp);
 // Primary Firestore Collection Names
 export const COLLECTIONS = {
   USERS: 'dmart_users',
+  PRODUCTS: 'dmart_products',
   SUPPLIERS: 'dmart_suppliers',
   ORDERS: 'dmart_orders',
   RIDERS: 'dmart_riders',
+  LOYALTY_TRANSACTIONS: 'dmart_loyalty_transactions',
   BANNERS: 'storefront_banners',
   BANNERS_ALIAS: 'banners',
   PAYOUT_REQUESTS: 'payout_requests',
@@ -107,7 +111,8 @@ export async function testConnection(): Promise<boolean> {
 // -------------------------------------------------------------
 export async function syncUserToFirestore(
   user: UserProfile,
-  deliveryAddress?: DeliveryAddress
+  deliveryAddress?: DeliveryAddress,
+  loyaltyPoints?: number
 ): Promise<void> {
   if (!user || !user.email) return;
   try {
@@ -122,12 +127,173 @@ export async function syncUserToFirestore(
         avatar: user.avatar || '',
         phone: deliveryAddress?.phone || '012-3849120',
         savedAddresses: deliveryAddress ? [deliveryAddress] : [],
+        loyaltyPoints: loyaltyPoints !== undefined ? loyaltyPoints : 150,
         updatedAt: new Date().toISOString(),
       },
       { merge: true }
     );
   } catch (err) {
     console.warn('[Firebase] syncUserToFirestore fallback to local state:', err);
+  }
+}
+
+// -------------------------------------------------------------
+// FIRESTORE SERVICES: CATALOG PRODUCTS (dmart_products)
+// -------------------------------------------------------------
+export async function syncProductToFirestore(product: Product): Promise<void> {
+  if (!product || !product.id) return;
+  try {
+    const prodRef = doc(db, COLLECTIONS.PRODUCTS, product.id);
+    await setDoc(
+      prodRef,
+      {
+        ...product,
+        updated_at: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('[Firebase] syncProductToFirestore error:', err);
+  }
+}
+
+export async function fetchProductsFromFirestore(): Promise<Product[]> {
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.PRODUCTS));
+    if (snap.empty) return [];
+    const list: Product[] = [];
+    snap.forEach((docSnap) => {
+      list.push(docSnap.data() as Product);
+    });
+    return list;
+  } catch (err) {
+    console.warn('[Firebase] fetchProductsFromFirestore error:', err);
+    return [];
+  }
+}
+
+export function subscribeToCatalogProducts(
+  onUpdate: (products: Product[]) => void
+): () => void {
+  try {
+    const colRef = collection(db, COLLECTIONS.PRODUCTS);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const list: Product[] = [];
+          snapshot.forEach((docSnap) => {
+            list.push(docSnap.data() as Product);
+          });
+          onUpdate(list);
+        }
+      },
+      (error) => {
+        console.warn('[Firebase] catalog products onSnapshot error:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('[Firebase] subscribeToCatalogProducts error:', err);
+    return () => {};
+  }
+}
+
+export async function deleteProductFromFirestore(productId: string): Promise<void> {
+  if (!productId) return;
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
+  } catch (err) {
+    console.warn('[Firebase] deleteProductFromFirestore error:', err);
+  }
+}
+
+export async function seedInitialProductsIfEmpty(initial: Product[]): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.PRODUCTS));
+    if (snap.empty && initial && initial.length > 0) {
+      console.log('[Firebase] Seeding initial product catalog to Firestore...');
+      for (const p of initial) {
+        await syncProductToFirestore(p);
+      }
+      console.log('[Firebase] Successfully seeded product catalog to Firestore.');
+    }
+  } catch (err) {
+    console.warn('[Firebase] seedInitialProductsIfEmpty warning:', err);
+  }
+}
+
+// -------------------------------------------------------------
+// FIRESTORE SERVICES: LOYALTY TRANSACTIONS (dmart_loyalty_transactions)
+// -------------------------------------------------------------
+export async function syncLoyaltyTransactionToFirestore(
+  transaction: LoyaltyTransaction,
+  userEmail?: string
+): Promise<void> {
+  try {
+    const txRef = doc(db, COLLECTIONS.LOYALTY_TRANSACTIONS, transaction.id);
+    await setDoc(
+      txRef,
+      {
+        ...transaction,
+        userEmail: userEmail || 'guest@dmart.my',
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('[Firebase] syncLoyaltyTransactionToFirestore error:', err);
+  }
+}
+
+export async function fetchLoyaltyTransactionsFromFirestore(
+  userEmail?: string
+): Promise<LoyaltyTransaction[]> {
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.LOYALTY_TRANSACTIONS));
+    if (snap.empty) return [];
+    const list: LoyaltyTransaction[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as LoyaltyTransaction & { userEmail?: string };
+      if (!userEmail || !data.userEmail || data.userEmail === userEmail) {
+        list.push({ ...data, id: docSnap.id });
+      }
+    });
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return list;
+  } catch (err) {
+    console.warn('[Firebase] fetchLoyaltyTransactionsFromFirestore error:', err);
+    return [];
+  }
+}
+
+export function subscribeToLoyaltyTransactions(
+  userEmail: string | undefined,
+  onUpdate: (transactions: LoyaltyTransaction[]) => void
+): () => void {
+  try {
+    const txCol = collection(db, COLLECTIONS.LOYALTY_TRANSACTIONS);
+    return onSnapshot(
+      txCol,
+      (snapshot) => {
+        const list: LoyaltyTransaction[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as LoyaltyTransaction & { userEmail?: string };
+          if (!userEmail || !data.userEmail || data.userEmail === userEmail) {
+            list.push({ ...data, id: docSnap.id });
+          }
+        });
+        list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        if (list.length > 0) {
+          onUpdate(list);
+        }
+      },
+      (error) => {
+        console.warn('[Firebase] loyalty transactions onSnapshot error:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('[Firebase] subscribeToLoyaltyTransactions error:', err);
+    return () => {};
   }
 }
 
@@ -785,7 +951,7 @@ export async function getPdfConfigFromFirestore(): Promise<PdfConfigSettings> {
     const docRef = doc(db, COLLECTIONS.SYSTEM_SETTINGS, 'pdf_config');
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      const data = snap.data() as PdfConfigSettings;
+      const data = { ...DEFAULT_PDF_CONFIG, ...(snap.data() as Partial<PdfConfigSettings>) };
       try {
         localStorage.setItem('dmart_pdf_config', JSON.stringify(data));
       } catch {}
@@ -797,7 +963,7 @@ export async function getPdfConfigFromFirestore(): Promise<PdfConfigSettings> {
 
   try {
     const local = localStorage.getItem('dmart_pdf_config');
-    if (local) return JSON.parse(local);
+    if (local) return { ...DEFAULT_PDF_CONFIG, ...JSON.parse(local) };
   } catch {}
 
   return DEFAULT_PDF_CONFIG;
@@ -812,7 +978,7 @@ export function subscribeToPdfConfig(
       docRef,
       (snapshot) => {
         if (snapshot.exists()) {
-          const data = snapshot.data() as PdfConfigSettings;
+          const data = { ...DEFAULT_PDF_CONFIG, ...(snapshot.data() as Partial<PdfConfigSettings>) };
           try {
             localStorage.setItem('dmart_pdf_config', JSON.stringify(data));
           } catch {}
@@ -821,7 +987,7 @@ export function subscribeToPdfConfig(
           try {
             const local = localStorage.getItem('dmart_pdf_config');
             if (local) {
-              callback(JSON.parse(local));
+              callback({ ...DEFAULT_PDF_CONFIG, ...JSON.parse(local) });
               return;
             }
           } catch {}
@@ -976,3 +1142,14 @@ export async function executeStrictSignOut(): Promise<void> {
     console.warn('[Cleanup] Cache wipe notice:', err);
   }
 }
+
+// -------------------------------------------------------------
+// PAYOUT LEDGER MOCK DATA SEEDING (PARTNER_TEST_01 / Almehdhar Trading Co.)
+// -------------------------------------------------------------
+export {
+  seedPayoutLedgerMockData,
+  fetchPartnerOrders,
+  fetchPayoutLedgerRecords,
+  calculateNetPayout,
+} from './services/seedPayoutLedger';
+

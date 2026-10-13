@@ -9,6 +9,7 @@
         "name": { "type": "string", "description": "Full name of the customer" },
         "email": { "type": "string", "description": "Email address" },
         "phone": { "type": "string", "description": "Contact phone number" },
+        "loyaltyPoints": { "type": "number", "description": "Accumulated customer loyalty reward points" },
         "savedAddresses": { "type": "array", "description": "List of saved delivery addresses" },
         "createdAt": { "type": "string", "description": "Account creation timestamp" },
         "updatedAt": { "type": "string", "description": "Last profile update timestamp" }
@@ -155,10 +156,22 @@
         "companyName": { "type": "string", "description": "Official company trading and brand name" },
         "ssmRegistrationNumber": { "type": "string", "description": "Malaysian SSM company registration number" },
         "headerSubtitle": { "type": "string", "description": "PDF header subtitle, department or slogan" },
+        "customHeaderText": { "type": "string", "description": "Custom top header note or department headline" },
         "officialAddress": { "type": "string", "description": "Corporate headquarters registered address" },
         "supportContact": { "type": "string", "description": "Official support phone and email contact" },
         "footerDisclaimer": { "type": "string", "description": "Statutory legal disclaimer and digital certificate statement" },
         "certificateText": { "type": "string", "description": "Audit certificate statement" },
+        "signatureNoteText": { "type": "string", "description": "Computer-generated signature notice text" },
+        "customFooterText": { "type": "string", "description": "Custom bottom footer text and contact notes" },
+        "logoPosition": { "type": "string", "enum": ["left", "center", "right", "hidden"], "description": "Positioning of company logo in PDF headers" },
+        "showCompanyLogo": { "type": "boolean", "description": "Toggle visibility of company logo" },
+        "topMargin": { "type": "number", "description": "Top margin in mm for header spacing" },
+        "bottomMargin": { "type": "number", "description": "Bottom margin in mm for footer clearance" },
+        "pagePadding": { "type": "number", "description": "Horizontal side margins in mm" },
+        "sectionSpacing": { "type": "number", "description": "Vertical spacing between sections in mm to avoid overlap" },
+        "showLegalDisclaimer": { "type": "boolean", "description": "Toggle visibility of statutory legal disclaimer" },
+        "showSsmRegistration": { "type": "boolean", "description": "Toggle visibility of SSM registration info" },
+        "showSignatureNote": { "type": "boolean", "description": "Toggle visibility of computer-generated signature note" },
         "updatedAt": { "type": "string", "description": "Last settings update ISO timestamp" },
         "updatedBy": { "type": "string", "description": "Admin email or identifier who updated settings" }
       },
@@ -188,9 +201,131 @@
         "updatedBy": { "type": "string", "description": "Admin email who saved storefront copy settings" }
       },
       "required": ["announcementBarText", "storeBadgeText", "footerBrandTitle", "footerBrandSubtitle", "footerPaymentMethodsText", "footerCopyrightNotice", "heroBadgeTag", "heroMainHeadline", "heroSubHeadline", "categorySectionTitle"]
+    },
+    "LoyaltyTransaction": {
+      "title": "LoyaltyTransaction",
+      "description": "Itemized loyalty reward points transaction history for earning, redemption, and bonuses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique transaction ID" },
+        "userEmail": { "type": "string", "description": "Associated customer email" },
+        "type": { "type": "string", "enum": ["earned", "spent", "bonus", "refund"], "description": "Transaction category" },
+        "amount": { "type": "number", "description": "Positive or negative points change" },
+        "titleEn": { "type": "string", "description": "English transaction title" },
+        "titleMs": { "type": "string", "description": "Bahasa Malaysia transaction title" },
+        "notesEn": { "type": "string", "description": "English transaction details" },
+        "notesMs": { "type": "string", "description": "Bahasa Malaysia transaction details" },
+        "date": { "type": "string", "description": "Transaction ISO timestamp" },
+        "orderReference": { "type": "string", "description": "Linked order number reference" },
+        "balanceAfter": { "type": "number", "description": "Running loyalty points balance after transaction" }
+      },
+      "required": ["id", "type", "amount", "titleEn", "titleMs", "date"]
+    },
+    "GamificationBadge": {
+      "title": "GamificationBadge",
+      "description": "Achievement badges and quests unlocked by customer order milestones",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique badge ID" },
+        "titleEn": { "type": "string", "description": "Badge title in English" },
+        "titleMs": { "type": "string", "description": "Badge title in Bahasa Malaysia" },
+        "descriptionEn": { "type": "string", "description": "Badge description in English" },
+        "descriptionMs": { "type": "string", "description": "Badge description in Bahasa Malaysia" },
+        "category": { "type": "string", "description": "orders, food, loyalty, speed, community" },
+        "icon": { "type": "string", "description": "Icon identifier" },
+        "unlocked": { "type": "boolean", "description": "Whether badge milestone is achieved" },
+        "unlockedAt": { "type": "string", "description": "Badge achievement timestamp" },
+        "progressCurrent": { "type": "number", "description": "Current progress value" },
+        "progressTarget": { "type": "number", "description": "Target threshold to unlock" },
+        "bonusPointsReward": { "type": "number", "description": "Bonus loyalty points awarded upon unlocking" }
+      },
+      "required": ["id", "titleEn", "titleMs", "category", "icon", "unlocked"]
+    },
+    "DmartProduct": {
+      "title": "DmartProduct",
+      "description": "Storefront product inventory catalog item with pricing, images, categories, and dynamic stock levels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique product SKU / item identifier" },
+        "nameEn": { "type": "string", "description": "Product name in English" },
+        "nameMs": { "type": "string", "description": "Product name in Bahasa Malaysia" },
+        "descriptionEn": { "type": "string", "description": "Detailed description in English" },
+        "descriptionMs": { "type": "string", "description": "Detailed description in Bahasa Malaysia" },
+        "price": { "type": "number", "description": "Current selling price in MYR" },
+        "old_price": { "type": "number", "description": "Previous retail price in MYR" },
+        "category": { "type": "string", "description": "Internal department category key" },
+        "mainCategory": { "type": "string", "description": "Storefront primary category" },
+        "subCategory": { "type": "string", "description": "Department subcategory filter key" },
+        "secondaryCategories": { "type": "array", "description": "Cross-listed category keys" },
+        "imageUrl": { "type": "string", "description": "Primary high-resolution product image" },
+        "inStock": { "type": "boolean", "description": "Real-time stock availability flag" },
+        "is_available": { "type": "boolean", "description": "Supplier availability status" },
+        "stock": { "type": "number", "description": "Current inventory unit count" },
+        "rating": { "type": "number", "description": "Customer average star review rating" },
+        "supplierId": { "type": "string", "description": "Assigned merchant / supplier partner identifier" },
+        "supplierName": { "type": "string", "description": "Merchant partner trading business name" }
+      },
+      "required": ["id", "nameEn", "nameMs", "price", "mainCategory"]
+    },
+    "FcmDeviceToken": {
+      "title": "FcmDeviceToken",
+      "description": "Firebase Cloud Messaging device registration tokens for targeted push notifications",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string", "description": "Unique FCM device registration token" },
+        "userEmail": { "type": "string", "description": "Associated user account email or guest identifier" },
+        "platform": { "type": "string", "description": "web or mobile client" },
+        "userAgent": { "type": "string", "description": "Client user agent metadata" },
+        "updatedAt": { "type": "string", "description": "Last token refresh ISO timestamp" }
+      },
+      "required": ["token", "platform", "updatedAt"]
+    },
+    "PartnerOrder": {
+      "title": "PartnerOrder",
+      "description": "Merchant partner sales orders tracking partner code, amount, status, and items for commission calculations",
+      "type": "object",
+      "properties": {
+        "partnerCode": { "type": "string", "description": "Associated partner merchant identifier (e.g. PARTNER_TEST_01)" },
+        "amount": { "type": "number", "description": "Gross order amount in MYR" },
+        "status": { "type": "string", "enum": ["COMPLETED", "PENDING", "CANCELLED"], "description": "Order fulfillment status" },
+        "createdAt": { "type": "string", "description": "Server timestamp of order placement" },
+        "items": { "type": "array", "description": "List of ordered item descriptions" }
+      },
+      "required": ["partnerCode", "amount", "status"]
+    },
+    "PartnerPayoutLedger": {
+      "title": "PartnerPayoutLedger",
+      "description": "Partner settlement ledger summary storing commission rate, settlement period, and status",
+      "type": "object",
+      "properties": {
+        "advertiserId": { "type": "string", "description": "Partner identifier (e.g. PARTNER_TEST_01)" },
+        "partnerName": { "type": "string", "description": "Partner business name (e.g. Almehdhar Trading Co.)" },
+        "commissionRate": { "type": "number", "description": "Agreed commission rate decimal (e.g. 0.10 for 10%)" },
+        "settlementStatus": { "type": "string", "enum": ["UNSETTLED", "SETTLED"], "description": "Payout settlement status" },
+        "periodStart": { "type": "string", "description": "Billing period start date (YYYY-MM-DD)" },
+        "periodEnd": { "type": "string", "description": "Billing period end date (YYYY-MM-DD)" },
+        "lastUpdated": { "type": "string", "description": "Last ledger update timestamp" }
+      },
+      "required": ["advertiserId", "partnerName", "commissionRate", "settlementStatus"]
     }
   },
   "firestore": {
+    "/orders/{orderId}": {
+      "schema": "PartnerOrder",
+      "description": "Partner merchant orders for automated payout ledger settlement calculation"
+    },
+    "/payout_ledger/{ledgerId}": {
+      "schema": "PartnerPayoutLedger",
+      "description": "Partner payout ledger summary balances and monthly settlement journals"
+    },
+    "/dmart_fcm_tokens/{tokenId}": {
+      "schema": "FcmDeviceToken",
+      "description": "Registered browser device tokens for order status push alerts"
+    },
+    "/dmart_products/{productId}": {
+      "schema": "DmartProduct",
+      "description": "Central catalog product inventory records synced in real-time across storefront and admin"
+    },
     "/dmart_users/{userId}": {
       "schema": "DmartUser",
       "description": "Customer profiles, addresses, and user-specific configurations"
@@ -206,6 +341,10 @@
     "/dmart_riders/{riderId}": {
       "schema": "DmartRider",
       "description": "Approved delivery rider profiles, vehicle details, and landing preferences"
+    },
+    "/dmart_loyalty_transactions/{transactionId}": {
+      "schema": "LoyaltyTransaction",
+      "description": "Customer loyalty reward points ledger transactions and order cashback records"
     },
     "/storefront_banners/{bannerId}": {
       "schema": "StorefrontBanner",

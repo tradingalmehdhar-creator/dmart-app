@@ -159,28 +159,27 @@ Thank you for shopping at D-mart!
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Quick Header Export PDF Action */}
+            {/* Primary Header Export PDF Action */}
             <button
               type="button"
               id="header-export-pdf-btn"
               onClick={handleExportPdf}
               disabled={isExportingPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-              title={isEn ? 'Export Order Summary as PDF document' : 'Eksport Ringkasan Pesanan sebagai dokumen PDF'}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-amber-950 font-bold text-xs sm:text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+              title={isEn ? 'Export Official Order Receipt as PDF' : 'Eksport Resit Pesanan Rasmi sebagai PDF'}
             >
               {isExportingPdf ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
               ) : pdfSuccess ? (
-                <Check className="w-3.5 h-3.5 text-emerald-900 stroke-[3]" />
+                <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-950 stroke-[3]" />
               ) : (
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               )}
-              <span className="hidden sm:inline">
+              <span>
                 {pdfSuccess
                   ? (isEn ? 'Saved PDF' : 'PDF Disimpan')
                   : (isEn ? 'Export PDF' : 'Eksport PDF')}
               </span>
-              <span className="sm:hidden">PDF</span>
             </button>
 
             <button
@@ -211,14 +210,14 @@ Thank you for shopping at D-mart!
 
           {/* Customer & Delivery Summary Card */}
           <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
+              <div className="flex items-start gap-2.5 min-w-0 w-full sm:w-auto flex-1">
                 <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
+                <div className="min-w-0 w-full">
                   <span className="font-bold text-gray-900 block text-xs">
                     {recipientName}
                   </span>
-                  <p className="text-gray-600 text-[11px] leading-relaxed mt-0.5">
+                  <p className="text-gray-600 text-[11px] leading-relaxed mt-0.5 w-full break-words">
                     {formattedAddress}
                   </p>
                   <p className="text-gray-500 text-[11px] mt-0.5">
@@ -226,7 +225,7 @@ Thank you for shopping at D-mart!
                   </p>
                 </div>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 shrink-0">
+              <span className="self-start text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 shrink-0">
                 {order.deliverySlot ? (isEn ? order.deliverySlot : order.deliverySlotMs || order.deliverySlot) : (isEn ? 'Express Delivery' : 'Penghantaran Ekspres')}
               </span>
             </div>
@@ -376,48 +375,21 @@ Thank you for shopping at D-mart!
             </div>
           </div>
 
-          {/* Quick PDF Document Export Callout Card */}
-          <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border border-emerald-200 flex items-center justify-between gap-3 shadow-2xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <FileText className="w-4 h-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h5 className="font-bold text-xs text-emerald-950 leading-tight">
-                  {isEn ? 'Save Order PDF for Your Records' : 'Simpan PDF Pesanan untuk Rekod Anda'}
-                </h5>
-                <p className="text-[10.5px] text-emerald-800 leading-snug">
-                  {isEn
-                    ? 'Download official tax invoice with full itemized breakdown'
-                    : 'Muat turun invois rasmi dengan senarai lengkap barangan'}
-                </p>
-              </div>
+          {/* Official Tax Invoice & Records Information Card */}
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border border-emerald-200 flex items-center gap-3 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <FileText className="w-4 h-4 text-white" />
             </div>
-
-            <button
-              type="button"
-              id="card-export-pdf-btn"
-              onClick={handleExportPdf}
-              disabled={isExportingPdf}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all shrink-0 cursor-pointer disabled:opacity-60"
-            >
-              {isExportingPdf ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>{isEn ? 'Generating...' : 'Menjana...'}</span>
-                </>
-              ) : pdfSuccess ? (
-                <>
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>{isEn ? 'Downloaded' : 'Dimuat Turun'}</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-3.5 h-3.5" />
-                  <span>{isEn ? 'Save PDF' : 'Simpan PDF'}</span>
-                </>
-              )}
-            </button>
+            <div className="min-w-0">
+              <h5 className="font-bold text-xs text-emerald-950 leading-tight">
+                {isEn ? 'Official Tax Invoice & Grocery Breakdown' : 'Invois Cukai Rasmi & Senarai Barangan Runcit'}
+              </h5>
+              <p className="text-[10.5px] text-emerald-800 leading-snug">
+                {isEn
+                  ? 'Use the "Export PDF" button above at any time to save or print this official digital receipt.'
+                  : 'Gunakan butang "Eksport PDF" di bahagian atas bila-bila masa untuk menyimpan atau mencetak resit ini.'}
+              </p>
+            </div>
           </div>
 
           {/* Footer note */}
@@ -431,37 +403,10 @@ Thank you for shopping at D-mart!
         {/* Footer Actions */}
         <div className="p-3.5 sm:p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Primary Download / Export PDF Button */}
-            <button
-              type="button"
-              id="footer-export-pdf-btn"
-              onClick={handleExportPdf}
-              disabled={isExportingPdf}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-60"
-              title={isEn ? 'Download Order Summary as PDF Document' : 'Muat Turun Ringkasan Pesanan sebagai Dokumen PDF'}
-            >
-              {isExportingPdf ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-200" />
-                  <span>{isEn ? 'Exporting PDF...' : 'Mengeksport PDF...'}</span>
-                </>
-              ) : pdfSuccess ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-200 stroke-[3]" />
-                  <span>{isEn ? 'PDF Saved!' : 'PDF Disimpan!'}</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-3.5 h-3.5 text-emerald-100" />
-                  <span>{isEn ? 'Export as PDF' : 'Eksport sebagai PDF'}</span>
-                </>
-              )}
-            </button>
-
             <button
               type="button"
               onClick={handleCopyReceipt}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
             >
               {copied ? (
                 <>
@@ -479,7 +424,7 @@ Thank you for shopping at D-mart!
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer hidden sm:flex"
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-gray-600" />
               <span>{isEn ? 'Print' : 'Cetak'}</span>

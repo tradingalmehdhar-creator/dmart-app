@@ -1,13 +1,16 @@
 import { jsPDF } from 'jspdf';
-import { Order, Language } from '../types';
+import { Order, Language, PdfConfigSettings } from '../types';
+import { getGlobalPdfConfig, drawCompanyLogo } from './pdfGenerator';
 
 export interface GenerateReceiptPdfOptions {
   order: Order | any;
   language: Language;
+  overrideConfig?: Partial<PdfConfigSettings>;
 }
 
-export function generateOrderReceiptPdf({ order, language }: GenerateReceiptPdfOptions): void {
+export function generateOrderReceiptPdf({ order, language, overrideConfig }: GenerateReceiptPdfOptions): void {
   const isEn = language === 'en';
+  const cfg: PdfConfigSettings = { ...getGlobalPdfConfig(), ...(overrideConfig || {}) };
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -16,7 +19,10 @@ export function generateOrderReceiptPdf({ order, language }: GenerateReceiptPdfO
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 14;
+  const margin = cfg.pagePadding ?? 14;
+  const topMargin = cfg.topMargin ?? 12;
+  const bottomMargin = cfg.bottomMargin ?? 14;
+  const sectionSpacing = cfg.sectionSpacing ?? 6;
   const contentWidth = pageWidth - margin * 2;
 
   // Format date & time
@@ -62,40 +68,62 @@ export function generateOrderReceiptPdf({ order, language }: GenerateReceiptPdfO
   const pointsEarned = Number(order.pointsEarned || Math.round(total * 1));
 
   // 1. Top Header Banner (Emerald Gradient Style)
+  const bannerHeight = Math.max(30, topMargin * 2 + 8);
   doc.setFillColor(6, 95, 70); // #065f46
-  doc.rect(0, 0, pageWidth, 28, 'F');
+  doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+  // Company Logo positioning
+  const logoInfo = (cfg.showCompanyLogo && cfg.logoPosition !== 'hidden')
+    ? drawCompanyLogo(doc, cfg.logoPosition, 6, pageWidth, margin)
+    : null;
+
+  let textX = margin;
+  if (logoInfo && cfg.logoPosition === 'left') {
+    textX = margin + logoInfo.logoWidth + 3.5;
+  }
 
   // Brand Name
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('PASARAYA D-MART MALAYSIA', margin, 12);
+  doc.text(cfg.companyName.toUpperCase(), textX, 13);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(209, 250, 229);
   doc.text(
-    isEn
+    cfg.headerSubtitle || (isEn
       ? 'Official Grocery Tax Invoice & Delivery Summary'
-      : 'Invois Cukai Barangan Runcit Rasmi & Ringkasan Penghantaran',
-    margin,
-    18
+      : 'Invois Cukai Barangan Runcit Rasmi & Ringkasan Penghantaran'),
+    textX,
+    19
   );
-  doc.text('Express 2-Hour Fresh Doorstep Delivery | https://d-mart.my', margin, 23);
+
+  let headerSubText = 'Express 2-Hour Fresh Doorstep Delivery | https://d-mart.my';
+  if (cfg.customHeaderText) {
+    headerSubText = cfg.customHeaderText;
+  } else if (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) {
+    headerSubText = `SSM: ${cfg.ssmRegistrationNumber} | Express Fresh Doorstep Delivery`;
+  }
+  doc.text(headerSubText, textX, 24);
 
   // Top Right Order Badge
+  const badgeRightX = (cfg.logoPosition === 'right' && logoInfo)
+    ? pageWidth - margin - logoInfo.logoWidth - 54
+    : pageWidth - margin - 52;
+
   doc.setFillColor(4, 120, 87); // #047857
-  doc.roundedRect(pageWidth - margin - 52, 6, 52, 16, 2, 2, 'F');
+  doc.roundedRect(badgeRightX, 6, 52, 16, 2, 2, 'F');
   doc.setTextColor(253, 230, 138); // amber-200
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text(`INVOICE: #${order.orderNumber}`, pageWidth - margin - 50, 12);
+  doc.setFontSize(8.5);
+  doc.text(`INVOICE: #${order.orderNumber}`, badgeRightX + 2, 12);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(formattedDate, pageWidth - margin - 50, 18);
+  doc.text(formattedDate, badgeRightX + 2, 18);
 
-  let currentY = 36;
+  let currentY = bannerHeight + sectionSpacing;
 
   // 2. Customer & Delivery Destination Box (2 Columns)
   doc.setFillColor(249, 250, 251); // gray-50
@@ -147,7 +175,7 @@ export function generateOrderReceiptPdf({ order, language }: GenerateReceiptPdfO
   const statusText = order.status === 'delivered' ? (isEn ? 'Completed / Delivered' : 'Selesai / Dihantar') : (isEn ? 'Order Confirmed' : 'Disahkan');
   doc.text(`${isEn ? 'Status:' : 'Status:'} ${statusText}`, col2X, currentY + 24);
 
-  currentY += 39;
+  currentY += 32 + sectionSpacing;
 
   // 3. Itemized Purchased Products Table
   doc.setFont('helvetica', 'bold');
@@ -232,9 +260,9 @@ export function generateOrderReceiptPdf({ order, language }: GenerateReceiptPdfO
       currentY += 6.5;
 
       // Multi-page safety (if order has > 25 items)
-      if (currentY > pageHeight - 65) {
+      if (currentY > pageHeight - bottomMargin - 55) {
         doc.addPage();
-        currentY = 20;
+        currentY = topMargin + 8;
       }
     });
   }
@@ -243,7 +271,7 @@ export function generateOrderReceiptPdf({ order, language }: GenerateReceiptPdfO
   doc.setDrawColor(209, 213, 219);
   doc.line(margin, currentY, pageWidth - margin, currentY);
 
-  currentY += 6;
+  currentY += sectionSpacing;
 
   // 4. Financial Breakdown & Grand Total Box
   const summaryBoxWidth = 85;
@@ -345,24 +373,40 @@ export function generateOrderReceiptPdf({ order, language }: GenerateReceiptPdfO
   doc.text(`RM ${total.toFixed(2)}`, pageWidth - margin - 2, rightY + 2, { align: 'right' });
 
   // 5. Official Footer
-  const footerY = pageHeight - 12;
+  const footerY = pageHeight - bottomMargin;
   doc.setDrawColor(229, 231, 235);
-  doc.line(margin, footerY - 4, pageWidth - margin, footerY - 4);
+  doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+
+  let footerTextY = footerY - 1;
+
+  if (cfg.showSignatureNote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(107, 114, 128);
+    const sigNote = cfg.signatureNoteText || (isEn
+      ? 'This is a computer-generated tax invoice. No signature is required. Thank you for shopping with D-mart Malaysia.'
+      : 'Invois cukai ini dijana oleh komputer. Tandatangan tidak diperlukan. Terima kasih kerana membeli-belah di D-mart Malaysia.');
+    doc.text(sigNote, margin, footerTextY);
+    footerTextY += 4;
+  }
+
+  if (cfg.showLegalDisclaimer) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(156, 163, 175);
+    doc.text(cfg.footerDisclaimer, margin, footerTextY);
+    footerTextY += 3.5;
+  }
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setTextColor(156, 163, 175);
+  const ssmLine = (cfg.showSsmRegistration && cfg.ssmRegistrationNumber) ? `SSM: ${cfg.ssmRegistrationNumber} • ` : '';
+  const customFoot = cfg.customFooterText ? ` • ${cfg.customFooterText}` : '';
   doc.text(
-    isEn
-      ? 'This is a computer-generated tax invoice. No signature is required. Thank you for shopping with D-mart Malaysia.'
-      : 'Invois cukai ini dijana oleh komputer. Tandatangan tidak diperlukan. Terima kasih kerana membeli-belah di D-mart Malaysia.',
-    margin,
-    footerY
-  );
-  doc.text(
-    `Page 1 of 1 • D-mart Applet ID: ${order.orderNumber}`,
+    `${ssmLine}Page 1 of 1 • D-mart Applet ID: ${order.orderNumber}${customFoot}`,
     pageWidth - margin,
-    footerY,
+    footerY + (cfg.showLegalDisclaimer ? 3 : 0),
     { align: 'right' }
   );
 
