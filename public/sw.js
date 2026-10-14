@@ -3,7 +3,7 @@
  * Provides offline caching, app shell precaching, and network fallback.
  */
 
-const CACHE_VERSION = 'dmart-pwa-v1.0.0';
+const CACHE_VERSION = 'dmart-pwa-v1.1.0';
 const STATIC_CACHE_NAME = `dmart-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dmart-dynamic-${CACHE_VERSION}`;
 

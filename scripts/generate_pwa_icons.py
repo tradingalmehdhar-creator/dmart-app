@@ -1,234 +1,125 @@
 #!/usr/bin/env python3
 """
-Generate crisp, high-resolution D-Mart PWA icon assets:
-- icon-192x192.png
-- icon-512x512.png
-- icon-maskable-512x512.png
-- apple-touch-icon.png (180x180)
-- pwa-192x192.png
-- pwa-512x512.png
+Generate high-resolution D-Mart PWA icon assets with the new two-color vector design:
+- A large, bold uppercase letter "D"
+- The word "mart" written in a smaller font overlapping the edge/side of the "D" (half inside, half outside)
+- Two distinct colors: Primary Brand Green (#059669 / #047857) + Contrasting Dark Charcoal (#0f172a) / White (#ffffff)
+- Generates:
+    - icon-192x192.png
+    - icon-512x512.png
+    - icon-maskable-512x512.png
+    - apple-touch-icon.png (180x180)
+    - pwa-192x192.png
+    - pwa-512x512.png
+    - pwa-maskable-512x512.png
 """
-import math
 import os
-import struct
-import zlib
+import subprocess
 
-def encode_png(width, height, pixel_buffer):
-    """Encodes RGBA pixel buffer into standard PNG byte string."""
-    raw_rows = bytearray()
-    row_bytes = width * 4
-    for y in range(height):
-        raw_rows.append(0)  # Filter type 0: None
-        start = y * row_bytes
-        raw_rows.extend(pixel_buffer[start:start + row_bytes])
+FONT_PATH = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
 
-    def chunk(tag, data):
-        return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data) & 0xffffffff)
+def generate_standard_icon_512(out_path):
+    """
+    Renders 512x512 standard icon with rounded squircle, large bold D,
+    and dark charcoal pill badge with white "mart" overlapping the edge.
+    D outer edge at y=256 is x=340.
+    Pill is x=255..425 (width 170): 85px inside D, 85px outside D.
+    Text "mart" is centered at x=340, y=256.
+    """
+    cmd = [
+        "convert", "-size", "512x512", "xc:none",
+        # Primary Brand Green squircle background
+        "-fill", "#059669", "-draw", "roundrectangle 0,0,512,512,112,112",
+        "-stroke", "#10b981", "-strokewidth", "4", "-fill", "none",
+        "-draw", "roundrectangle 8,8,504,504,104,104",
+        "-stroke", "none",
+        # Drop shadow layer
+        "(", "-size", "512x512", "xc:none",
+        "-fill", "#022c22",
+        "-draw", "path \"M 80,116 L 195,116 C 295,116 340,171 340,262 C 340,353 295,408 195,408 L 80,408 Z M 150,184 L 190,184 C 248,184 275,214 275,262 C 275,310 248,340 190,340 L 150,340 Z\"",
+        "-draw", "roundrectangle 255,222,425,302,40,40",
+        "-blur", "0x8",
+        ")",
+        "-compose", "over", "-composite",
+        # Large bold uppercase letter "D" in pure crisp white
+        "-fill", "#ffffff",
+        "-draw", "path \"M 80,110 L 195,110 C 295,110 340,165 340,256 C 340,347 295,402 195,402 L 80,402 Z M 150,178 L 190,178 C 248,178 275,208 275,256 C 275,304 248,334 190,334 L 150,334 Z\"",
+        # Dark charcoal pill overlapping the edge (half inside D, half outside D)
+        "-fill", "#0f172a", "-stroke", "#ffffff", "-strokewidth", "6",
+        "-draw", "roundrectangle 255,216,425,296,40,40",
+        # Smaller font "mart" written across the center
+        "-stroke", "none", "-fill", "#ffffff", "-font", FONT_PATH, "-pointsize", "56",
+        "-gravity", "northwest", "-annotate", "+278+223", "mart",
+        out_path
+    ]
+    subprocess.run(cmd, check=True)
 
-    header = b'\x89PNG\r\n\x1a\n'
-    ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0))
-    idat = chunk(b'IDAT', zlib.compress(bytes(raw_rows), 9))
-    iend = chunk(b'IEND', b'')
-    return header + ihdr + idat + iend
+def generate_maskable_icon_512(out_path):
+    """
+    Renders 512x512 maskable icon:
+    Full-bleed square emerald background (#059669),
+    with emblem scaled by 72% into the Android safe-zone circle (diameter 410px).
+    """
+    cmd = [
+        "convert",
+        "-size", "512x512", "canvas:#059669",
+        "(",
+        "-size", "512x512", "xc:none",
+        "-fill", "#ffffff",
+        "-draw", "path \"M 80,110 L 195,110 C 295,110 340,165 340,256 C 340,347 295,402 195,402 L 80,402 Z M 150,178 L 190,178 C 248,178 275,208 275,256 C 275,304 248,334 190,334 L 150,334 Z\"",
+        "-fill", "#0f172a", "-stroke", "#ffffff", "-strokewidth", "6",
+        "-draw", "roundrectangle 255,216,425,296,40,40",
+        "-stroke", "none", "-fill", "#ffffff", "-font", FONT_PATH, "-pointsize", "56",
+        "-gravity", "northwest", "-annotate", "+278+223", "mart",
+        "-resize", "72%",
+        ")",
+        "-gravity", "center", "-composite",
+        out_path
+    ]
+    subprocess.run(cmd, check=True)
 
-def clamp(val, min_val=0.0, max_val=1.0):
-    return max(min_val, min(max_val, val))
-
-def blend(fg, bg, alpha):
-    """Alpha blend fg (RGBA 0-255) over bg (RGBA 0-255)"""
-    a = fg[3] / 255.0 * alpha
-    out_a = a + (bg[3] / 255.0) * (1.0 - a)
-    if out_a <= 0.001:
-        return (0, 0, 0, 0)
-    r = int((fg[0] * a + bg[0] * (bg[3] / 255.0) * (1.0 - a)) / out_a)
-    g = int((fg[1] * a + bg[1] * (bg[3] / 255.0) * (1.0 - a)) / out_a)
-    b = int((fg[2] * a + bg[2] * (bg[3] / 255.0) * (1.0 - a)) / out_a)
-    return (clamp(r, 0, 255), clamp(g, 0, 255), clamp(b, 0, 255), int(out_a * 255))
-
-def rounded_rect_dist(x, y, w, h, rx, ry, rw, rh, radius):
-    """Signed distance to rounded rectangle. Negative inside, positive outside."""
-    cx = rx + rw / 2.0
-    cy = ry + rh / 2.0
-    dx = abs(x - cx) - (rw / 2.0 - radius)
-    dy = abs(y - cy) - (rh / 2.0 - radius)
-    if dx > 0 and dy > 0:
-        return math.hypot(dx, dy) - radius
-    return max(dx, dy) - radius
-
-def render_dmart_icon(size, is_maskable=False):
-    width = size
-    height = size
-    pixels = bytearray(width * height * 4)
-
-    # Scale factor for emblem
-    scale = 0.65 if is_maskable else 0.82
-    center_x = width / 2.0
-    center_y = height / 2.0
-
-    # Background round rect parameters
-    corner_radius = size * 0.22 if not is_maskable else 0.0
-
-    # Precalculate gradient colors
-    top_color = (16, 185, 129)     # #10b981 vibrant emerald
-    bottom_color = (4, 120, 87)    # #047857 deep emerald
-
-    for y in range(height):
-        v = y / float(height - 1)
-        # Background gradient
-        bg_r = int(top_color[0] + (bottom_color[0] - top_color[0]) * v)
-        bg_g = int(top_color[1] + (bottom_color[1] - top_color[1]) * v)
-        bg_b = int(top_color[2] + (bottom_color[2] - top_color[2]) * v)
-
-        for x in range(width):
-            # Calculate distance to icon boundary
-            if is_maskable:
-                # Full bleed square
-                bg_alpha = 1.0
-            else:
-                dist = rounded_rect_dist(x, y, width, height, 0, 0, width, height, corner_radius)
-                # Anti-aliasing border
-                if dist <= -0.5:
-                    bg_alpha = 1.0
-                elif dist >= 0.5:
-                    bg_alpha = 0.0
-                else:
-                    bg_alpha = clamp(0.5 - dist)
-
-            if bg_alpha <= 0.0:
-                idx = (y * width + x) * 4
-                pixels[idx:idx+4] = (0, 0, 0, 0)
-                continue
-
-            current_pixel = (bg_r, bg_g, bg_b, int(bg_alpha * 255))
-
-            # Transform into normalized emblem space: [-1, 1] relative to center
-            ex = (x - center_x) / (center_x * scale)
-            ey = (y - center_y) / (center_y * scale)
-
-            # Draw "D" emblem:
-            # Outer boundary of D:
-            # Flat left back from ex = -0.6 to -0.2
-            # Semicircular bulge from ex = -0.2 to +0.65
-            # Top at ey = -0.7, bottom at ey = +0.7
-            emblem_alpha = 0.0
-            shadow_alpha = 0.0
-
-            # Distance field for 'D' outer shape:
-            def d_outer_dist(px, py):
-                # Vertical spine on left: px in [-0.62, 0.0], py in [-0.7, 0.7]
-                # Right curved loop: center at (0.0, 0.0), radius 0.7
-                if py < -0.7 or py > 0.7:
-                    # distance to top/bottom caps
-                    clamped_y = clamp(py, -0.7, 0.7)
-                    dy_cap = abs(py - clamped_y)
-                    if px < 0.0:
-                        clamped_x = clamp(px, -0.62, 0.0)
-                        return math.hypot(px - clamped_x, dy_cap)
-                    else:
-                        rad = math.hypot(px, clamped_y)
-                        if rad > 0.7:
-                            return math.hypot(rad - 0.7, dy_cap)
-                        return dy_cap
-                if px <= 0.0:
-                    dx_left = -0.62 - px
-                    return max(dx_left, abs(py) - 0.7)
-                else:
-                    rad = math.hypot(px, py)
-                    return rad - 0.7
-
-            def d_inner_dist(px, py):
-                # Cutout inside D:
-                # Vertical spine left: px = -0.22, right loop center at (0.0, 0.0) with radius 0.38
-                # Top/bottom caps at py = -0.38 to +0.38
-                if py < -0.38 or py > 0.38:
-                    clamped_y = clamp(py, -0.38, 0.38)
-                    dy_cap = abs(py - clamped_y)
-                    if px < 0.0:
-                        clamped_x = clamp(px, -0.22, 0.0)
-                        return math.hypot(px - clamped_x, dy_cap)
-                    else:
-                        rad = math.hypot(px, clamped_y)
-                        return math.hypot(rad - 0.38, dy_cap)
-                if px <= 0.0:
-                    dx_left = -0.22 - px
-                    return max(dx_left, abs(py) - 0.38)
-                else:
-                    rad = math.hypot(px, py)
-                    return rad - 0.38
-
-            # Pixel distance in scaled emblem space
-            # 1 unit in emblem space = (center_x * scale) pixels
-            pixel_scale = center_x * scale
-            outer_dist_px = d_outer_dist(ex, ey) * pixel_scale
-            inner_dist_px = d_inner_dist(ex, ey) * pixel_scale
-
-            # Outside D outer or inside D inner:
-            # We want outer_dist_px <= 0 and inner_dist_px >= 0
-            if outer_dist_px < 1.0 and inner_dist_px > -1.0:
-                cov_outer = clamp(0.5 - outer_dist_px)
-                cov_inner = clamp(0.5 + inner_dist_px)
-                emblem_alpha = min(cov_outer, cov_inner)
-
-            # Drop shadow for emblem (offset by ex, ey + 0.06):
-            sh_outer = d_outer_dist(ex, ey - 0.05) * pixel_scale
-            sh_inner = d_inner_dist(ex, ey - 0.05) * pixel_scale
-            if sh_outer < 2.0 and sh_inner > -2.0:
-                cov_sh_outer = clamp(1.0 - sh_outer / 2.0)
-                cov_sh_inner = clamp(1.0 + sh_inner / 2.0)
-                shadow_alpha = min(cov_sh_outer, cov_sh_inner) * 0.25
-
-            # Fresh grocery leaf motif at top-right (ex around 0.45, ey around -0.65)
-            # Two crossed oval leaves in bright lime/yellow (#a3e635)
-            leaf_alpha = 0.0
-            lx = ex - 0.42
-            ly = ey + 0.62
-            # Leaf angle ~ 35 degrees
-            rad_l1 = math.hypot(lx * 1.5 - ly, ly * 1.5 + lx)
-            if rad_l1 < 0.22:
-                leaf_dist = (rad_l1 - 0.22) * pixel_scale
-                leaf_alpha = clamp(0.5 - leaf_dist)
-
-            # Apply shadow first
-            if shadow_alpha > 0.0 and emblem_alpha < 0.99:
-                current_pixel = blend((0, 40, 25, 255), current_pixel, shadow_alpha)
-
-            # Apply white D monogram
-            if emblem_alpha > 0.0:
-                current_pixel = blend((255, 255, 255, 255), current_pixel, emblem_alpha)
-
-            # Apply green grocery leaf
-            if leaf_alpha > 0.0:
-                current_pixel = blend((163, 230, 53, 255), current_pixel, leaf_alpha)
-
-            idx = (y * width + x) * 4
-            pixels[idx] = current_pixel[0]
-            pixels[idx+1] = current_pixel[1]
-            pixels[idx+2] = current_pixel[2]
-            pixels[idx+3] = current_pixel[3]
-
-    return encode_png(width, height, pixels)
+def resize_icon(src_path, out_path, size):
+    """Resize high-res icon to target size with Lanczos resampling."""
+    cmd = [
+        "convert", src_path,
+        "-filter", "Lanczos",
+        "-resize", f"{size}x{size}",
+        out_path
+    ]
+    subprocess.run(cmd, check=True)
 
 def main():
-    target_dir = os.path.join(os.path.dirname(__file__), '..', 'public')
-    os.makedirs(target_dir, exist_ok=True)
+    os.makedirs(PUBLIC_DIR, exist_ok=True)
 
-    icons = [
-        ('icon-192x192.png', 192, False),
-        ('icon-512x512.png', 512, False),
-        ('icon-maskable-512x512.png', 512, True),
-        ('apple-touch-icon.png', 180, False),
-        ('pwa-192x192.png', 192, False),
-        ('pwa-512x512.png', 512, False),
-        ('pwa-maskable-512x512.png', 512, True),
-    ]
+    std_512 = os.path.join(PUBLIC_DIR, "icon-512x512.png")
+    mask_512 = os.path.join(PUBLIC_DIR, "icon-maskable-512x512.png")
+    std_192 = os.path.join(PUBLIC_DIR, "icon-192x192.png")
+    apple_touch = os.path.join(PUBLIC_DIR, "apple-touch-icon.png")
 
-    for fname, size, is_maskable in icons:
-        out_path = os.path.join(target_dir, fname)
-        print(f"Generating {fname} ({size}x{size}, maskable={is_maskable})...")
-        png_data = render_dmart_icon(size, is_maskable=is_maskable)
-        with open(out_path, 'wb') as f:
-            f.write(png_data)
-        print(f"Saved {fname} ({len(png_data)} bytes)")
+    print("1. Generating icon-512x512.png...")
+    generate_standard_icon_512(std_512)
 
-if __name__ == '__main__':
+    print("2. Generating icon-maskable-512x512.png...")
+    generate_maskable_icon_512(mask_512)
+
+    print("3. Generating icon-192x192.png...")
+    resize_icon(std_512, std_192, 192)
+
+    print("4. Generating apple-touch-icon.png (180x180)...")
+    resize_icon(std_512, apple_touch, 180)
+
+    # Sync aliases for PWA manifest
+    pwa_512 = os.path.join(PUBLIC_DIR, "pwa-512x512.png")
+    pwa_192 = os.path.join(PUBLIC_DIR, "pwa-192x192.png")
+    pwa_mask = os.path.join(PUBLIC_DIR, "pwa-maskable-512x512.png")
+
+    import shutil
+    shutil.copyfile(std_512, pwa_512)
+    shutil.copyfile(std_192, pwa_192)
+    shutil.copyfile(mask_512, pwa_mask)
+
+    print("All PWA PNG icons generated successfully!")
+
+if __name__ == "__main__":
     main()

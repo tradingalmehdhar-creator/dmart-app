@@ -17,7 +17,6 @@ import {
 import { Language, UserProfile, DeliveryPartnerApplication } from '../types';
 import { QRCodeShareBanner } from './QRCodeShareBanner';
 import { LoyaltyTierBadge } from './LoyaltyTierBadge';
-import { PWAInstallButton } from './PWAInstallButton';
 
 interface SideNavDrawerProps {
   isOpen: boolean;
@@ -369,11 +368,6 @@ export const SideNavDrawer: React.FC<SideNavDrawerProps> = ({
               <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
             </button>
           )}
-        </div>
-
-        {/* PWA App Install Banner */}
-        <div className="px-3 pb-2">
-          <PWAInstallButton language={language} variant="banner" onInstalled={onClose} />
         </div>
 
         {/* BOTTOM SECTION: Compact QR Code Banner labeled "Scan to Share D-mart" */}

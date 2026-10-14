@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Language } from '../types';
-import { PWAInstallButton } from './PWAInstallButton';
 
 interface ShareAppModalProps {
   isOpen: boolean;
@@ -256,11 +255,6 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({
               <Download className="w-3.5 h-3.5 text-emerald-700" />
               <span>{savedSuccess ? (isEn ? 'Saved PNG!' : 'Disimpan!') : (isEn ? 'Save QR Image' : 'Simpan Imej QR')}</span>
             </button>
-          </div>
-
-          {/* Direct Install PWA Action */}
-          <div className="w-full max-w-[340px]">
-            <PWAInstallButton language={language} variant="full" onInstalled={onClose} />
           </div>
 
           {/* Benefits summary badge */}
