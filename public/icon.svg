@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Clean Two-Color Vector Icon: Emerald Green (#059669) & Pure White (#ffffff) -->
+  <!-- D-Mart Two-Color Vector Icon: Emerald Green (#059669) & Pure White (#ffffff) -->
   <rect width="512" height="512" rx="112" fill="#059669"/>
 
   <!-- Large Uppercase Letter "D" -->
-  <path d="M 96 80 L 220 80 C 320 80 380 150 380 256 C 380 362 320 432 220 432 L 96 432 Z M 176 156 L 176 356 L 220 356 C 280 356 308 316 308 256 C 308 196 280 156 220 156 Z" fill="#ffffff"/>
+  <path d="M 88 80 L 220 80 C 320 80 376 150 376 256 C 376 362 320 432 220 432 L 88 432 Z M 168 156 L 168 356 L 220 356 C 280 356 296 316 296 256 C 296 196 280 156 220 156 Z" fill="#ffffff"/>
 
-  <!-- "mart" Pill Badge Overlapping Edge of "D" (Half Inside x:270..380, Half Outside x:380..490) -->
-  <rect x="270" y="218" width="220" height="76" rx="38" fill="#059669" stroke="#ffffff" stroke-width="8"/>
+  <!-- "mart" Pill Badge Overlapping Edge of "D" (Half Inside x:264..376, Half Outside x:376..488) -->
+  <rect x="264" y="214" width="224" height="84" rx="42" fill="#059669" stroke="#ffffff" stroke-width="8"/>
 
-  <!-- "mart" Text Centered Exactly on the Edge (x=380, y=256) -->
-  <text x="380" y="273" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="52" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-1">mart</text>
+  <!-- "mart" Text Centered on the Edge (x=376, y=256) -->
+  <text x="376" y="274" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="56" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-1">mart</text>
 </svg>
