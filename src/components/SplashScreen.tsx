@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Store, ShoppingBag, Sparkles, Bike, ShieldCheck } from 'lucide-react';
 import { Language } from '../types';
-import { DMartLogo } from './DMartLogo';
 
 interface SplashScreenProps {
   language: Language;
@@ -133,7 +132,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           <div className="absolute -inset-3 rounded-3xl bg-emerald-400/30 blur-md animate-pulse" />
 
           <div className="relative transform hover:scale-105 transition-transform animate-bounce">
-            <DMartLogo size={108} variant="badge" className="drop-shadow-2xl" />
+            <img src="/icon.svg" alt="D-Mart" className="w-[108px] h-[108px] rounded-3xl drop-shadow-2xl object-contain shadow-emerald-900/30" />
           </div>
 
           {/* Floating mini badge */}

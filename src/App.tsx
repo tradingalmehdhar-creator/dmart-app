@@ -2093,7 +2093,7 @@ export default function App() {
         </footer>
       )}
 
-      {/* Slide-in Cart Drawer */}
+      {/* Dedicated Full-Page Cart & Checkout View */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -2110,23 +2110,14 @@ export default function App() {
         onApplyVoucher={handleApplyVoucher}
         voucherCode={activeVoucherCode}
         onOpenShareApp={() => setIsShareAppOpen(true)}
-        onProceedToCheckout={() => {
+        user={user}
+        deliveryAddress={deliveryAddress}
+        onOpenMapPicker={() => {
           setIsCartOpen(false);
-          const isProfileComplete =
-            Boolean(user?.isLoggedIn) &&
-            Boolean(hasRegisteredBuyer) &&
-            Boolean(user?.name?.trim()) &&
-            Boolean(user?.phone?.trim()) &&
-            Boolean(deliveryAddress?.street?.trim()) &&
-            Boolean(deliveryAddress?.city?.trim()) &&
-            Boolean(deliveryAddress?.postcode?.trim());
-
-          if (!isProfileComplete) {
-            setIsBuyerRegistrationOpen(true);
-          } else {
-            setIsCheckoutOpen(true);
-          }
+          setIsMapPickerOpen(true);
         }}
+        onOrderSuccess={handleOrderSuccess}
+        loyaltyPoints={loyaltyPoints}
       />
 
       {/* Buyer Registration & Checkout Gate Modal (Step 1: Google Auth, Step 2: Mandatory Profile) */}

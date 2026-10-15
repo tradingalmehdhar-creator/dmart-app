@@ -65,6 +65,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Bypass service worker for Vite dev server internals, source files, and query-versioned modules
+  if (
+    url.pathname.startsWith('/@') ||
+    url.pathname.includes('/src/') ||
+    url.pathname.match(/\.(tsx|ts|jsx|mjs)$/i) ||
+    url.searchParams.has('v') ||
+    url.hostname === 'localhost' ||
+    url.hostname.includes('127.0.0.1')
+  ) {
+    return;
+  }
+
   // Handle SPA Navigation requests (HTML pages)
   if (request.mode === 'navigate') {
     event.respondWith(
