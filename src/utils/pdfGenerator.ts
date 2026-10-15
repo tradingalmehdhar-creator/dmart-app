@@ -1664,7 +1664,7 @@ export function exportSamplePdfPreview(
       netProfit: 2950.0,
       notes: 'All cashier registers and COD envelopes verified and deposited into Bangsar safe vault.',
       closedBy: 'Aisyah Razak',
-      verifiedBy: 'Encik Farhan Al-Mehdhar',
+      verifiedBy: 'D-Mart Compliance Officer',
       status: 'balanced',
       timestamp: new Date().toISOString(),
     };

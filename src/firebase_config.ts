@@ -125,7 +125,7 @@ export async function syncUserToFirestore(
         name: user.name,
         email: user.email,
         avatar: user.avatar || '',
-        phone: deliveryAddress?.phone || '012-3849120',
+        phone: deliveryAddress?.phone || user.phone || '',
         savedAddresses: deliveryAddress ? [deliveryAddress] : [],
         loyaltyPoints: loyaltyPoints !== undefined ? loyaltyPoints : 150,
         updatedAt: new Date().toISOString(),

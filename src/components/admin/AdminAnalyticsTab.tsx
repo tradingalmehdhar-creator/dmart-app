@@ -311,8 +311,8 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({
     doc.text('Lim Kok Seng, CA(M)', pagePadding, yPos + 5);
     doc.text('Corporate Financial Auditor & Controller', pagePadding, yPos + 9);
 
-    doc.text('Dato’ Farhan Al-Mehdhar', pageWidth - pagePadding - 66, yPos + 5);
-    doc.text('Executive Director, D-mart Supermarket Sdn. Bhd.', pageWidth - pagePadding - 66, yPos + 9);
+    doc.text('Managing Director', pageWidth - pagePadding - 66, yPos + 5);
+    doc.text('Executive Board, D-mart Supermarket Sdn. Bhd.', pageWidth - pagePadding - 66, yPos + 9);
 
     // Official Dynamic Footer
     const footerY = pageHeight - bottomMargin;

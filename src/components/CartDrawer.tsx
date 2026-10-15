@@ -96,7 +96,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [useLoyaltyPoints, setUseLoyaltyPoints] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('COD');
   const [selectedBank, setSelectedBank] = useState<string>('mb2u');
-  const [tngPhone, setTngPhone] = useState(user?.phone || '012-3849120');
+  const [tngPhone, setTngPhone] = useState(user?.phone || parentDeliveryAddress?.phone || '');
   const [deliverySlot, setDeliverySlot] = useState<'express' | 'evening' | 'tomorrow'>('express');
   const [selectedTip, setSelectedTip] = useState<number>(2);
   const [customTipInput, setCustomTipInput] = useState<string>('');
@@ -121,18 +121,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setInputCode(voucherCode);
   }, [voucherCode]);
 
-  // Fallback default delivery address
+  // Fallback default delivery address (Clean neutral Malaysian preset)
   const deliveryAddress: DeliveryAddress = parentDeliveryAddress || {
-    recipientName: user?.name || 'Al-Mehdhar',
-    phone: user?.phone || '012-3849120',
-    street: 'Jalan Kerinchi, Bangsar South',
-    buildingUnit: 'Unit B-12-05, The Horizon',
-    postcode: '59200',
+    recipientName: user?.name || '',
+    phone: user?.phone || '',
+    street: 'Jalan Ampang, KLCC',
+    buildingUnit: '',
+    postcode: '50088',
     city: 'Kuala Lumpur',
     state: 'Wilayah Persekutuan Kuala Lumpur',
-    notes: 'Sila serahkan di kaunter lobi / Leave at guardhouse',
-    coordinates: { lat: 3.1116, lng: 101.6669 },
-    formattedAddress: 'Unit B-12-05, The Horizon, Jalan Kerinchi, Bangsar South, 59200 Kuala Lumpur',
+    notes: '',
+    coordinates: { lat: 3.1579, lng: 101.7116 },
+    formattedAddress: 'KLCC, 50088 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
   };
 
   // Bundled recommendations in cart

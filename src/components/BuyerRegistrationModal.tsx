@@ -46,21 +46,21 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({
   // Step state: 'google_auth' -> 'profile_completion'
   const [step, setStep] = useState<'google_auth' | 'profile_completion'>('google_auth');
 
-  // Google Sign-In state
-  const defaultEmail = currentUser?.email || 'tradingalmehdhar@gmail.com';
+  // Google Sign-In state (Clean guest defaults)
+  const defaultEmail = currentUser?.email || '';
   const [googleEmail, setGoogleEmail] = useState(defaultEmail);
-  const [googleName, setGoogleName] = useState(currentUser?.name || 'Al-Mehdhar');
+  const [googleName, setGoogleName] = useState(currentUser?.name || '');
   const [isSigningInGoogle, setIsSigningInGoogle] = useState(false);
   const [showCustomGoogleInput, setShowCustomGoogleInput] = useState(false);
 
   // Profile completion state
-  const [fullName, setFullName] = useState(currentUser?.name || 'Al-Mehdhar');
-  const [phoneNumber, setPhoneNumber] = useState(currentUser?.phone || currentAddress.phone || '012-3849120');
+  const [fullName, setFullName] = useState(currentUser?.name || '');
+  const [phoneNumber, setPhoneNumber] = useState(currentUser?.phone || currentAddress.phone || '');
 
-  // Address inputs
-  const [street, setStreet] = useState(currentAddress.street || 'Jalan Tun Razak, Imbi');
-  const [buildingUnit, setBuildingUnit] = useState(currentAddress.buildingUnit || 'Unit B-12-05');
-  const [postcode, setPostcode] = useState(currentAddress.postcode || '55100');
+  // Address inputs (Clean Malaysian defaults)
+  const [street, setStreet] = useState(currentAddress.street || 'Jalan Ampang, KLCC');
+  const [buildingUnit, setBuildingUnit] = useState(currentAddress.buildingUnit || '');
+  const [postcode, setPostcode] = useState(currentAddress.postcode || '50088');
   const [city, setCity] = useState(currentAddress.city || 'Kuala Lumpur');
   const [state, setState] = useState(currentAddress.state || 'Wilayah Persekutuan Kuala Lumpur');
   const [notes, setNotes] = useState(currentAddress.notes || '');
@@ -97,7 +97,7 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({
         name: (googleName.trim() || 'Google Shopper'),
         email: (googleEmail.trim() || 'shopper@gmail.com'),
         avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(googleName.trim() || 'Google Shopper')}&backgroundColor=10b981`,
-        phone: phoneNumber.trim() || '012-3849120',
+        phone: phoneNumber.trim(),
         isLoggedIn: true,
       };
 
@@ -331,15 +331,17 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({
 
                 <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs mb-3">
                   <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                    A
+                    {googleName.trim().charAt(0).toUpperCase() || 'G'}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-gray-900 truncate">Al-Mehdhar</span>
+                      <span className="text-xs font-bold text-gray-900 truncate">
+                        {googleName.trim() || (isEn ? 'Google Account' : 'Akaun Google')}
+                      </span>
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     </div>
                     <span className="text-[11px] text-gray-500 block truncate">
-                      tradingalmehdhar@gmail.com
+                      {googleEmail.trim() || (isEn ? 'Instant 1-Click Verification' : 'Pengesahan Pantas 1-Klik')}
                     </span>
                   </div>
                 </div>
@@ -348,7 +350,7 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({
                   type="button"
                   onClick={() => handleGoogleSignIn()}
                   disabled={isSigningInGoogle}
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isSigningInGoogle ? (
                     <>
@@ -363,7 +365,11 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({
                           d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.36 7.37 24 12 24z"
                         />
                       </svg>
-                      <span>{isEn ? 'Continue as Al-Mehdhar' : 'Teruskan sebagai Al-Mehdhar'}</span>
+                      <span>
+                        {googleName.trim()
+                          ? (isEn ? `Continue as ${googleName.trim()}` : `Teruskan sebagai ${googleName.trim()}`)
+                          : (isEn ? 'Continue with Google' : 'Teruskan dengan Google')}
+                      </span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -507,7 +513,7 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Al-Mehdhar"
+                    placeholder={isEn ? "e.g. Ahmad Razak" : "cth. Ahmad Razak"}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:border-emerald-500 focus:bg-white text-xs font-medium outline-none transition-all"
                   />
                 </div>
@@ -527,7 +533,7 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({
                     required
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="e.g. 012-3849120"
+                    placeholder="e.g. 012-3456789"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:border-emerald-500 focus:bg-white text-xs font-medium outline-none transition-all"
                   />
                   <span className="text-[10px] text-gray-500 block">

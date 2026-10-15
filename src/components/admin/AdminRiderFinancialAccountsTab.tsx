@@ -167,7 +167,7 @@ export const AdminRiderFinancialAccountsTab: React.FC<AdminRiderFinancialAccount
       pool.push({
         id: savedLocalRider.id || savedLocalRider.referenceNo || 'rider_default',
         name: savedLocalRider.fullName || 'Muhammad Faiz bin Kamarudin',
-        phone: savedLocalRider.phoneNumber || '012-3849120',
+        phone: savedLocalRider.phoneNumber || '012-3456789',
         vehicleType: savedLocalRider.vehicleType || 'motorcycle',
         plate: savedLocalRider.plateNumber || 'WXY 8912',
         status: savedLocalRider.status || 'approved',

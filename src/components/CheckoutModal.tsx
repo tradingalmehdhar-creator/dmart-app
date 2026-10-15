@@ -64,7 +64,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('COD');
   const [selectedBank, setSelectedBank] = useState<string>('mb2u');
-  const [tngPhone, setTngPhone] = useState(user?.phone || '012-3849120');
+  const [tngPhone, setTngPhone] = useState(user?.phone || deliveryAddress.phone || '');
 
   // Delivery slot state
   const [deliverySlot, setDeliverySlot] = useState<'express' | 'evening' | 'tomorrow'>('express');
@@ -211,9 +211,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-xs text-emerald-800 uppercase tracking-wider">
                   📍 {language === 'en' ? 'GOOGLE MAP PINNED LOCATION' : 'LOKASI DITANDAI PETA GOOGLE'}
-                </p>
                 <h4 className="font-bold text-sm text-gray-900 break-words mt-0.5">
-                  {deliveryAddress.recipientName || 'Al-Mehdhar'} ({deliveryAddress.phone || '012-3849120'})
+                  {deliveryAddress.recipientName || user?.name || (language === 'en' ? 'Customer' : 'Pelanggan')}
+                  {(deliveryAddress.phone || user?.phone) ? ` (${deliveryAddress.phone || user?.phone})` : ''}
                 </h4>
                 <p className="text-xs text-gray-600 break-words mt-1 leading-relaxed">
                   {deliveryAddress.formattedAddress || `${deliveryAddress.buildingUnit ? deliveryAddress.buildingUnit + ', ' : ''}${deliveryAddress.street}, ${deliveryAddress.postcode} ${deliveryAddress.city}, ${deliveryAddress.state}`}

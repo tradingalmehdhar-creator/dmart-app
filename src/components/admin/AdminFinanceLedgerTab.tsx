@@ -341,7 +341,7 @@ export const AdminFinanceLedgerTab: React.FC<AdminFinanceLedgerTabProps> = ({
     cogs: 7100,
     deliveryFeesCollected: 450,
     closedBy: 'Razali Osman (Manager)',
-    verifiedBy: 'Dato’ Farhan Al-Mehdhar',
+    verifiedBy: 'D-Mart Compliance Director',
     notes: 'Shift terminal batches balanced cleanly. Cash verified and stored in drop safe.',
   });
 

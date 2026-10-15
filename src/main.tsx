@@ -93,6 +93,19 @@ class RootErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState
 
 // Resilient Root Container Mounting
 function mountApp() {
+  // Security & Privacy Isolation: Ensure newly built APK / shared web sessions start clean
+  try {
+    const rawUser = localStorage.getItem('dmart_user');
+    if (rawUser && (rawUser.includes('tradingalmehdhar') || rawUser.includes('Al-Mehdhar'))) {
+      localStorage.removeItem('dmart_user');
+      localStorage.removeItem('dmart_buyer_registered');
+      localStorage.removeItem('dmart_address');
+      localStorage.removeItem('dmart_rider_app');
+    }
+  } catch {
+    // ignore storage access errors
+  }
+
   let rootElement = document.getElementById('root');
   if (!rootElement) {
     rootElement = document.createElement('div');

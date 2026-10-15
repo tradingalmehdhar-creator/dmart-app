@@ -803,7 +803,7 @@ export const INITIAL_PUSH_BROADCASTS: PushNotificationBroadcast[] = [
 export const INITIAL_SUBADMIN_PROFILES: SubAdminProfile[] = [
   {
     id: 'adm-01',
-    fullName: 'Dato’ Farhan Al-Mehdhar (Super Admin)',
+    fullName: 'System Super Admin (Executive Management)',
     email: 'admin@d-mart.my',
     phone: '012-3456789',
     role: 'super_admin',
@@ -1143,7 +1143,7 @@ export const INITIAL_DAILY_CLOSURES: DailyClosureRecord[] = [
     drawerActualCash: 1920.00,
     variance: 0.00,
     closedBy: 'Razali Osman (Manager)',
-    verifiedBy: 'Dato’ Farhan Al-Mehdhar',
+    verifiedBy: 'D-Mart Compliance Director',
     status: 'balanced',
     notes: 'All terminal batches settled cleanly without variance. Cash deposited in safe.',
   },
@@ -1215,7 +1215,7 @@ export const INITIAL_DAILY_CLOSURES: DailyClosureRecord[] = [
     drawerActualCash: 2350.00,
     variance: 0.00,
     closedBy: 'Razali Osman (Manager)',
-    verifiedBy: 'Dato’ Farhan Al-Mehdhar',
+    verifiedBy: 'D-Mart Compliance Director',
     status: 'balanced',
     notes: 'Friday peak hour closure reconciled with zero variance.',
   },

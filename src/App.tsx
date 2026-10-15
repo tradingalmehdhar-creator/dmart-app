@@ -132,41 +132,59 @@ export default function App() {
     return (saved as Language) || 'en';
   });
 
-  // User Authentication State (Google) - Guest-First by default
+  // User Authentication State (Google) - Clean Guest-First state for all new users
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('dmart_user');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Security & Privacy guard: purge any developer session
+        if (
+          parsed?.email === 'tradingalmehdhar@gmail.com' ||
+          parsed?.name === 'Al-Mehdhar'
+        ) {
+          localStorage.removeItem('dmart_user');
+          localStorage.removeItem('dmart_buyer_registered');
+          return null;
+        }
+        return parsed;
       } catch {
         return null;
       }
     }
-    // Guest Browsing: start as guest (null) so user freely browses & adds to cart without forced sign-in
+    // Clean unauthenticated guest state by default
     return null;
   });
 
-  // Delivery Address & Google Map State (Default: Kuala Lumpur, Malaysia)
+  // Delivery Address State (Clean neutral Malaysian preset, no personal developer data)
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress>(() => {
     const saved = localStorage.getItem('dmart_address');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (
+          parsed?.recipientName === 'Al-Mehdhar' ||
+          parsed?.phone === '012-3849120'
+        ) {
+          localStorage.removeItem('dmart_address');
+        } else {
+          return parsed;
+        }
       } catch {
         // fallback
       }
     }
     return {
-      recipientName: 'Al-Mehdhar',
-      phone: '012-3849120',
-      street: 'Jalan Kerinchi, Bangsar South',
-      buildingUnit: 'Unit B-12-05, The Horizon',
-      postcode: '59200',
+      recipientName: '',
+      phone: '',
+      street: 'Jalan Ampang, KLCC',
+      buildingUnit: '',
+      postcode: '50088',
       city: 'Kuala Lumpur',
       state: 'Wilayah Persekutuan Kuala Lumpur',
-      notes: 'Sila serahkan di kaunter lobi / Leave at guardhouse',
-      coordinates: { lat: 3.1116, lng: 101.6669 },
-      formattedAddress: 'Unit B-12-05, The Horizon, Jalan Kerinchi, Bangsar South, 59200 Kuala Lumpur'
+      notes: '',
+      coordinates: { lat: 3.1579, lng: 101.7116 },
+      formattedAddress: 'KLCC, 50088 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur'
     };
   });
 
@@ -2222,7 +2240,7 @@ export default function App() {
           localStorage.removeItem('dmart_buyer_registered');
           setIsAuthOpen(true);
         }}
-        defaultEmail="tradingalmehdhar@gmail.com"
+        defaultEmail=""
         deliveryApplication={deliveryApplication}
         onOpenDeliveryPartnerRegistration={() => {
           setIsAuthOpen(false);

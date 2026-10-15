@@ -37,7 +37,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
   user,
   onLogin,
   onLogout,
-  defaultEmail = 'tradingalmehdhar@gmail.com',
+  defaultEmail = '',
   deliveryApplication,
   onOpenDeliveryPartnerRegistration,
   onOpenDeliveryStatus,
@@ -54,9 +54,9 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
   const t = translations[language];
   const isEn = language === 'en';
   const effectiveBadges = badges || computeUserBadges(orders, loyaltyPoints, user);
-  const [selectedEmail, setSelectedEmail] = useState(defaultEmail);
-  const [customName, setCustomName] = useState('Al-Mehdhar');
-  const [phone, setPhone] = useState('012-3849120');
+  const [selectedEmail, setSelectedEmail] = useState(defaultEmail || '');
+  const [customName, setCustomName] = useState(user?.name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -152,9 +152,11 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                     />
                   </div>
                   <p className="text-xs text-gray-600 truncate">{user.email}</p>
-                  <p className="text-xs text-emerald-700 font-medium mt-0.5">
-                    📞 {user.phone || '012-3849120'}
-                  </p>
+                  {user.phone && (
+                    <p className="text-xs text-emerald-700 font-medium mt-0.5">
+                      📞 {user.phone}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -419,7 +421,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                     value={customName}
                     onChange={(e) => setCustomName(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm text-gray-900 outline-none"
-                    placeholder="e.g. Al-Mehdhar"
+                    placeholder={isEn ? "e.g. Ahmad Razak" : "cth. Ahmad Razak"}
                   />
                 </div>
 
@@ -436,7 +438,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm text-gray-900 outline-none"
-                    placeholder="012-3849120"
+                    placeholder="e.g. 012-3456789"
                   />
                 </div>
               </div>

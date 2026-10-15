@@ -261,8 +261,8 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                 <strong className="text-purple-950 block">{isEn ? 'Option B: Support Email' : 'Pilihan B: Emel Sokongan'}</strong>
                 <p className="text-gray-600 text-[11px]">
                   {isEn
-                    ? 'Email us at tradingalmehdhar@gmail.com with your registered phone number. Purged within 14 business days.'
-                    : 'Emel ke tradingalmehdhar@gmail.com dengan nombor berdaftar anda. Dipadamkan dalam 14 hari bekerja.'}
+                    ? 'Email us at privacy@d-mart.my with your registered phone number. Purged within 14 business days.'
+                    : 'Emel ke privacy@d-mart.my dengan nombor berdaftar anda. Dipadamkan dalam 14 hari bekerja.'}
                 </p>
               </div>
             </div>
@@ -296,8 +296,8 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
                 <span className="text-[10px] text-slate-400 block uppercase font-bold">{isEn ? 'Official Email' : 'Emel Rasmi'}</span>
-                <a href="mailto:tradingalmehdhar@gmail.com" className="text-emerald-300 hover:underline font-mono">
-                  tradingalmehdhar@gmail.com
+                <a href="mailto:privacy@d-mart.my" className="text-emerald-300 hover:underline font-mono">
+                  privacy@d-mart.my
                 </a>
               </div>
               <div>

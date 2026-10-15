@@ -25,9 +25,9 @@ export const DeliveryMapPicker: React.FC<DeliveryMapPickerProps> = ({
   const [postcode, setPostcode] = useState(currentAddress.postcode || '50450');
   const [city, setCity] = useState(currentAddress.city || 'Kuala Lumpur');
   const [state, setState] = useState(currentAddress.state || 'Wilayah Persekutuan Kuala Lumpur');
-  const [recipientName, setRecipientName] = useState(currentAddress.recipientName || 'Al-Mehdhar');
-  const [phone, setPhone] = useState(currentAddress.phone || '012-3849120');
-  const [notes, setNotes] = useState(currentAddress.notes || 'Please leave at door / gate');
+  const [recipientName, setRecipientName] = useState(currentAddress.recipientName || '');
+  const [phone, setPhone] = useState(currentAddress.phone || '');
+  const [notes, setNotes] = useState(currentAddress.notes || '');
   const [isLocating, setIsLocating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
