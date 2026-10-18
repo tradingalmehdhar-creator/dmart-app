@@ -211,6 +211,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-xs text-emerald-800 uppercase tracking-wider">
                   📍 {language === 'en' ? 'GOOGLE MAP PINNED LOCATION' : 'LOKASI DITANDAI PETA GOOGLE'}
+                </p>
                 <h4 className="font-bold text-sm text-gray-900 break-words mt-0.5">
                   {deliveryAddress.recipientName || user?.name || (language === 'en' ? 'Customer' : 'Pelanggan')}
                   {(deliveryAddress.phone || user?.phone) ? ` (${deliveryAddress.phone || user?.phone})` : ''}
