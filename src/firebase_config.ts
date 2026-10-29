@@ -33,6 +33,7 @@ import {
   StorefrontCopySettings,
   DEFAULT_STOREFRONT_COPY,
   LoyaltyTransaction,
+  ManagedCategory,
 } from './types';
 import { INITIAL_MARKETING_BANNERS } from './data/adminInitialData';
 
@@ -78,6 +79,7 @@ export const storage = getStorage(firebaseApp);
 export const COLLECTIONS = {
   USERS: 'dmart_users',
   PRODUCTS: 'dmart_products',
+  CATEGORIES: 'dmart_categories',
   SUPPLIERS: 'dmart_suppliers',
   ORDERS: 'dmart_orders',
   RIDERS: 'dmart_riders',
@@ -88,6 +90,11 @@ export const COLLECTIONS = {
   RIDER_LEDGERS: 'rider_ledgers',
   SYSTEM_SETTINGS: 'system_settings',
 } as const;
+
+// Helper to remove undefined fields which Firestore rejects
+export function cleanFirestoreData<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
 
 // Connection test routine as mandated by Firebase architecture skill
 export async function testConnection(): Promise<boolean> {
@@ -146,10 +153,10 @@ export async function syncProductToFirestore(product: Product): Promise<void> {
     const prodRef = doc(db, COLLECTIONS.PRODUCTS, product.id);
     await setDoc(
       prodRef,
-      {
+      cleanFirestoreData({
         ...product,
         updated_at: new Date().toISOString(),
-      },
+      }),
       { merge: true }
     );
   } catch (err) {
@@ -202,6 +209,7 @@ export async function deleteProductFromFirestore(productId: string): Promise<voi
   if (!productId) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
+    console.log('[Firebase] Deleted product from Firestore:', productId);
   } catch (err) {
     console.warn('[Firebase] deleteProductFromFirestore error:', err);
   }
@@ -219,6 +227,92 @@ export async function seedInitialProductsIfEmpty(initial: Product[]): Promise<vo
     }
   } catch (err) {
     console.warn('[Firebase] seedInitialProductsIfEmpty warning:', err);
+  }
+}
+
+// -------------------------------------------------------------
+// FIRESTORE SERVICES: CATEGORIES (dmart_categories)
+// -------------------------------------------------------------
+export async function syncCategoryToFirestore(category: ManagedCategory): Promise<void> {
+  if (!category || !category.id) return;
+  try {
+    const catRef = doc(db, COLLECTIONS.CATEGORIES, category.id);
+    await setDoc(
+      catRef,
+      cleanFirestoreData({
+        ...category,
+        updated_at: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('[Firebase] syncCategoryToFirestore error:', err);
+  }
+}
+
+export async function deleteCategoryFromFirestore(categoryId: string): Promise<void> {
+  if (!categoryId) return;
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.CATEGORIES, categoryId));
+    console.log('[Firebase] Deleted category from Firestore:', categoryId);
+  } catch (err) {
+    console.warn('[Firebase] deleteCategoryFromFirestore error:', err);
+  }
+}
+
+export async function fetchCategoriesFromFirestore(): Promise<ManagedCategory[]> {
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.CATEGORIES));
+    if (snap.empty) return [];
+    const list: ManagedCategory[] = [];
+    snap.forEach((docSnap) => {
+      list.push(docSnap.data() as ManagedCategory);
+    });
+    return list;
+  } catch (err) {
+    console.warn('[Firebase] fetchCategoriesFromFirestore error:', err);
+    return [];
+  }
+}
+
+export function subscribeToCategories(
+  onUpdate: (categories: ManagedCategory[]) => void
+): () => void {
+  try {
+    const colRef = collection(db, COLLECTIONS.CATEGORIES);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const list: ManagedCategory[] = [];
+          snapshot.forEach((docSnap) => {
+            list.push(docSnap.data() as ManagedCategory);
+          });
+          onUpdate(list);
+        }
+      },
+      (error) => {
+        console.warn('[Firebase] categories onSnapshot error:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('[Firebase] subscribeToCategories error:', err);
+    return () => {};
+  }
+}
+
+export async function seedInitialCategoriesIfEmpty(initial: ManagedCategory[]): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.CATEGORIES));
+    if (snap.empty && initial && initial.length > 0) {
+      console.log('[Firebase] Seeding initial categories to Firestore...');
+      for (const c of initial) {
+        await syncCategoryToFirestore(c);
+      }
+      console.log('[Firebase] Successfully seeded categories to Firestore.');
+    }
+  } catch (err) {
+    console.warn('[Firebase] seedInitialCategoriesIfEmpty warning:', err);
   }
 }
 

@@ -80,11 +80,16 @@ import {
   saveBannerToFirestore,
   deleteBannerFromFirestore,
   subscribeToStorefrontBanners,
+  subscribeToCategories,
+  syncCategoryToFirestore,
+  deleteCategoryFromFirestore,
 } from '../../firebase_config';
 
 interface AdminDashboardProps {
   products: Product[];
   onUpdateProducts: (products: Product[]) => void;
+  categories?: ManagedCategory[];
+  onUpdateCategories?: (categories: ManagedCategory[]) => void;
   applications: DeliveryPartnerApplication[];
   onUpdateApplicationStatus: (appId: string, status: DeliveryPartnerApplication['status']) => void;
   orders: Order[];
@@ -111,6 +116,8 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   products,
   onUpdateProducts,
+  categories: propCategories,
+  onUpdateCategories: propOnUpdateCategories,
   applications,
   onUpdateApplicationStatus,
   orders,
@@ -134,7 +141,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onBackToStore,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTabType>('inventory');
-  const [categories, setCategories] = useState<ManagedCategory[]>(INITIAL_MANAGED_CATEGORIES);
+  const [categories, setCategories] = useState<ManagedCategory[]>(propCategories || INITIAL_MANAGED_CATEGORIES);
+
+  useEffect(() => {
+    if (propCategories && propCategories.length > 0) {
+      setCategories(propCategories);
+    }
+  }, [propCategories]);
+
+  // Sync real-time with Firestore dmart_categories
+  useEffect(() => {
+    const unsubscribe = subscribeToCategories((liveCats) => {
+      if (liveCats && liveCats.length > 0) {
+        setCategories(liveCats);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const handleUpdateCategories = (newCategories: ManagedCategory[]) => {
+    // Detect deletions and delete from Firestore
+    const newIds = new Set(newCategories.map((c) => c.id));
+    categories.forEach((oldC) => {
+      if (!newIds.has(oldC.id)) {
+        deleteCategoryFromFirestore(oldC.id);
+      }
+    });
+
+    // Save/update in Firestore
+    newCategories.forEach((c) => {
+      syncCategoryToFirestore(c);
+    });
+
+    setCategories(newCategories);
+    if (propOnUpdateCategories) {
+      propOnUpdateCategories(newCategories);
+    }
+  };
+
   const [coupons, setCoupons] = useState<PromoCoupon[]>(INITIAL_PROMO_COUPONS);
   const [banners, setBanners] = useState<MarketingBanner[]>(propBanners || INITIAL_MARKETING_BANNERS);
 
@@ -1203,7 +1250,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               products={products}
               onUpdateProducts={onUpdateProducts}
               categories={categories}
-              onUpdateCategories={setCategories}
+              onUpdateCategories={handleUpdateCategories}
               language={language}
             />
           )}

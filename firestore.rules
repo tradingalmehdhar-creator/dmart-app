@@ -26,6 +26,11 @@ service cloud.firestore {
       allow read, write: if true; // Real-time catalog sync between storefront & admin
     }
 
+    // Supermarket Categories Collection
+    match /dmart_categories/{categoryId} {
+      allow read, write: if true; // Publicly readable for customer storefront and editable by admin
+    }
+
     // Orders Collection
     match /dmart_orders/{orderId} {
       allow read, write: if true; // Customer order placement & Rider delivery OTP verification

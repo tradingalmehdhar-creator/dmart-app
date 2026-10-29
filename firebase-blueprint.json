@@ -241,6 +241,24 @@
       },
       "required": ["id", "titleEn", "titleMs", "category", "icon", "unlocked"]
     },
+    "DmartCategory": {
+      "title": "DmartCategory",
+      "description": "Supermarket department categories with English and Malay titles, icons, descriptions, colors, and order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique category identifier e.g. fresh_products" },
+        "key": { "type": "string", "description": "Category key matching MainCategory" },
+        "nameEn": { "type": "string", "description": "Category title in English" },
+        "nameMs": { "type": "string", "description": "Category title in Bahasa Malaysia" },
+        "descEn": { "type": "string", "description": "Category description in English" },
+        "descMs": { "type": "string", "description": "Category description in Bahasa Malaysia" },
+        "color": { "type": "string", "description": "Theme color key: emerald, amber, orange, rose, sky, violet" },
+        "icon": { "type": "string", "description": "Icon identifier e.g. Apple, ShoppingBag, Coffee, Fish, Sparkles, Dog" },
+        "order": { "type": "number", "description": "Display order index" },
+        "subCategories": { "type": "array", "description": "Available sub-category options in this department" }
+      },
+      "required": ["id", "nameEn", "nameMs", "order"]
+    },
     "DmartProduct": {
       "title": "DmartProduct",
       "description": "Storefront product inventory catalog item with pricing, images, categories, and dynamic stock levels",
@@ -325,6 +343,10 @@
     "/dmart_products/{productId}": {
       "schema": "DmartProduct",
       "description": "Central catalog product inventory records synced in real-time across storefront and admin"
+    },
+    "/dmart_categories/{categoryId}": {
+      "schema": "DmartCategory",
+      "description": "Core supermarket department categories synced with mobile app and admin"
     },
     "/dmart_users/{userId}": {
       "schema": "DmartUser",

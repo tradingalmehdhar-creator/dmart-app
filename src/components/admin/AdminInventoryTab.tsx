@@ -27,6 +27,7 @@ import {
   ArrowDown,
   Check,
   Minus,
+  Trash2,
 } from 'lucide-react';
 import { Product, MainCategory, Language, ManagedCategory } from '../../types';
 import { ProductImagePicker } from './ProductImagePicker';
@@ -256,6 +257,40 @@ export const AdminInventoryTab: React.FC<AdminInventoryTabProps> = ({
     );
     onUpdateCategories(updated);
     showToast(language === 'en' ? 'Category visibility toggled.' : 'Status kategori dikemaskini.');
+  };
+
+  // Delete Category
+  const handleDeleteCategory = (catId: string) => {
+    const c = categories.find((cat) => cat.id === catId);
+    const name = c ? (language === 'en' ? c.nameEn : c.nameMs || c.nameEn) : catId;
+    const confirmed = window.confirm(
+      language === 'en'
+        ? `Are you sure you want to permanently delete category "${name}" from the database?`
+        : `Adakah anda pasti mahu memadamkan kategori "${name}" secara kekal dari pangkalan data?`
+    );
+    if (!confirmed) return;
+
+    const updated = categories.filter((cat) => cat.id !== catId);
+    onUpdateCategories(updated);
+    showToast(language === 'en' ? `Category "${name}" deleted.` : `Kategori "${name}" telah dipadamkan.`);
+  };
+
+  // Delete Product
+  const handleDeleteProduct = (productId: string) => {
+    const p = products.find((prod) => prod.id === productId);
+    const name = p ? (language === 'en' ? p.nameEn : p.nameMs || p.nameEn) : productId;
+    const confirmed = window.confirm(
+      language === 'en'
+        ? `Are you sure you want to delete "${name}" from the inventory database?`
+        : `Adakah anda pasti mahu memadamkan "${name}" daripada pangkalan data inventori?`
+    );
+    if (!confirmed) return;
+
+    const updated = products.filter((prod) => prod.id !== productId);
+    onUpdateProducts(updated);
+    if (editingProduct?.id === productId) setEditingProduct(null);
+    if (viewingDetailsProduct?.id === productId) setViewingDetailsProduct(null);
+    showToast(language === 'en' ? `Product "${name}" deleted from database.` : `Barangan "${name}" berjaya dipadamkan.`);
   };
 
   // Filtered Products
@@ -1525,15 +1560,25 @@ export const AdminInventoryTab: React.FC<AdminInventoryTabProps> = ({
                     </td>
 
                     {/* Actions Column */}
-                    <td className="py-3 px-4 min-w-[100px] text-right whitespace-nowrap border-b border-gray-100" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => setEditingProduct(product)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 text-gray-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>{language === 'en' ? 'Edit' : 'Ubah'}</span>
-                      </button>
+                    <td className="py-3 px-4 min-w-[130px] text-right whitespace-nowrap border-b border-gray-100" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingProduct(product)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-emerald-50 hover:text-emerald-700 text-gray-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>{language === 'en' ? 'Edit' : 'Ubah'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="p-1.5 bg-gray-100 hover:bg-rose-50 hover:text-rose-600 text-gray-500 rounded-lg transition-colors cursor-pointer"
+                          title={language === 'en' ? 'Delete product from database' : 'Padam barangan dari pangkalan data'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -2921,23 +2966,33 @@ export const AdminInventoryTab: React.FC<AdminInventoryTabProps> = ({
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                  onClick={() => handleDeleteProduct(editingProduct.id)}
+                  className="px-3.5 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  Cancel
+                  <Trash2 className="w-4 h-4" />
+                  <span>{language === 'en' ? 'Delete SKU' : 'Padam SKU'}</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={!getProductCategoryId(editingProduct)}
-                  title={!getProductCategoryId(editingProduct) ? (language === 'en' ? 'Category is required' : 'Kategori diperlukan') : undefined}
-                  className="px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{language === 'en' ? 'Save Changes' : 'Simpan Perubahan'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct(null)}
+                    className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!getProductCategoryId(editingProduct)}
+                    title={!getProductCategoryId(editingProduct) ? (language === 'en' ? 'Category is required' : 'Kategori diperlukan') : undefined}
+                    className="px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{language === 'en' ? 'Save Changes' : 'Simpan Perubahan'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -3241,6 +3296,14 @@ export const AdminInventoryTab: React.FC<AdminInventoryTabProps> = ({
                             }`}
                           >
                             {cat.isActive ? 'Active' : 'Disabled'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(cat.id)}
+                            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title={language === 'en' ? 'Delete category from database' : 'Padam kategori dari pangkalan data'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>

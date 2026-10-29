@@ -56,6 +56,7 @@ import {
   LoyaltyTransaction,
   GamificationBadge,
   OrderStatusNotification,
+  ManagedCategory,
 } from './types';
 import { getStoredLoyaltyTransactions, saveLoyaltyTransactions } from './utils/loyaltyTransactions';
 import { computeUserBadges } from './utils/gamificationBadges';
@@ -72,6 +73,7 @@ import {
   INITIAL_SHIPPING_SETTINGS,
   INITIAL_STORE_BANK_INFO,
   INITIAL_STORE_ORDERS,
+  INITIAL_MANAGED_CATEGORIES,
 } from './data/adminInitialData';
 import { Navbar } from './components/Navbar';
 import { SpecialVouchersTopBar } from './components/SpecialVouchersTopBar';
@@ -121,7 +123,12 @@ import {
   subscribeToStorefrontCopy,
   subscribeToCatalogProducts,
   syncProductToFirestore,
+  deleteProductFromFirestore,
   seedInitialProductsIfEmpty,
+  subscribeToCategories,
+  syncCategoryToFirestore,
+  deleteCategoryFromFirestore,
+  seedInitialCategoriesIfEmpty,
   executeStrictSignOut
 } from './firebase_config';
 
@@ -193,6 +200,15 @@ export default function App() {
 
   // Dynamic Central Products Catalog State (Pre-Firebase Firestore collection pattern)
   const [catalogProducts, setCatalogProducts] = useState<Product[]>(() => loadProducts());
+
+  // Dynamic Central Store Categories State (Synced directly with Firestore dmart_categories)
+  const [managedCategories, setManagedCategories] = useState<ManagedCategory[]>(() => {
+    try {
+      const saved = localStorage.getItem('dmart_categories');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_MANAGED_CATEGORIES;
+  });
 
   // Cart State
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -770,6 +786,25 @@ export default function App() {
     };
   }, []);
 
+  // Real-time store categories synchronization with Firestore
+  useEffect(() => {
+    // Seed initial categories to Firestore if collection is empty
+    seedInitialCategoriesIfEmpty(INITIAL_MANAGED_CATEGORIES);
+
+    const unsubscribe = subscribeToCategories((liveCats) => {
+      if (liveCats && liveCats.length > 0) {
+        setManagedCategories(liveCats);
+        try {
+          localStorage.setItem('dmart_categories', JSON.stringify(liveCats));
+        } catch {}
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   // Sync user profile changes to Firestore
   useEffect(() => {
     if (user && user.isLoggedIn) {
@@ -849,11 +884,39 @@ export default function App() {
   };
 
   const handleUpdateCatalogProducts = (updatedProducts: Product[]) => {
+    // Detect deleted products and delete from Firestore
+    const newIds = new Set(updatedProducts.map((p) => p.id));
+    catalogProducts.forEach((oldP) => {
+      if (!newIds.has(oldP.id)) {
+        deleteProductFromFirestore(oldP.id);
+      }
+    });
+
     setCatalogProducts(updatedProducts);
     saveProducts(updatedProducts);
     // Real-time synchronization to Firestore
     updatedProducts.forEach((p) => {
       syncProductToFirestore(p);
+    });
+  };
+
+  const handleUpdateCategories = (updatedCategories: ManagedCategory[]) => {
+    // Detect deleted categories and delete from Firestore
+    const newIds = new Set(updatedCategories.map((c) => c.id));
+    managedCategories.forEach((oldC) => {
+      if (!newIds.has(oldC.id)) {
+        deleteCategoryFromFirestore(oldC.id);
+      }
+    });
+
+    setManagedCategories(updatedCategories);
+    try {
+      localStorage.setItem('dmart_categories', JSON.stringify(updatedCategories));
+    } catch {}
+
+    // Real-time synchronization to Firestore
+    updatedCategories.forEach((c) => {
+      syncCategoryToFirestore(c);
     });
   };
 
@@ -1533,6 +1596,8 @@ export default function App() {
           <AdminDashboard
             products={catalogProducts}
             onUpdateProducts={handleUpdateCatalogProducts}
+            categories={managedCategories}
+            onUpdateCategories={handleUpdateCategories}
             applications={adminApplications}
             onUpdateApplicationStatus={handleUpdateApplicationStatus}
             orders={storeOrders}
