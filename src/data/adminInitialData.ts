@@ -488,6 +488,39 @@ export const INITIAL_MANAGED_CATEGORIES: ManagedCategory[] = [
       { id: 'sub-15', key: 'dog_food', nameEn: 'Dog Foods', nameMs: 'Makanan Anjing', itemCount: 3 },
     ],
   },
+  {
+    id: 'cat-7',
+    key: 'bakery',
+    nameEn: 'Bakery & Breads',
+    nameMs: 'Roti & Bakeri',
+    descriptionEn: 'Freshly baked sliced loaves, rolls, croissants & pastry',
+    descriptionMs: 'Roti Gardenia, roti bun segar, croissant & pastri',
+    icon: 'Croissant',
+    color: '#eab308',
+    itemCount: 6,
+    isActive: true,
+    subCategories: [
+      { id: 'sub-16', key: 'breads', nameEn: 'Sliced Breads', nameMs: 'Roti Buku & Keping', itemCount: 3 },
+      { id: 'sub-17', key: 'pastries', nameEn: 'Buns & Pastries', nameMs: 'Roti Bun & Pastri', itemCount: 3 },
+    ],
+  },
+  {
+    id: 'cat-8',
+    key: 'personal_care',
+    nameEn: 'Personal Care & Hygiene',
+    nameMs: 'Penjagaan Diri & Kebersihan',
+    descriptionEn: 'Gentle body wash, shampoo, oral dental care & soap',
+    descriptionMs: 'Mandian badan, syampu, ubat gigi Darlie & sabun buku',
+    icon: 'Sparkles',
+    color: '#0d9488',
+    itemCount: 8,
+    isActive: true,
+    subCategories: [
+      { id: 'sub-18', key: 'bath_body', nameEn: 'Body Wash & Soaps', nameMs: 'Mandian Badan & Sabun', itemCount: 3 },
+      { id: 'sub-19', key: 'oral_care', nameEn: 'Oral Dental Care', nameMs: 'Ubat Gigi & Berus', itemCount: 3 },
+      { id: 'sub-20', key: 'hair_care', nameEn: 'Shampoo & Conditioner', nameMs: 'Syampu Rambut', itemCount: 2 },
+    ],
+  },
 ];
 
 export const INITIAL_FLEET_RIDERS: FleetRider[] = [

@@ -218,12 +218,15 @@ export async function deleteProductFromFirestore(productId: string): Promise<voi
 export async function seedInitialProductsIfEmpty(initial: Product[]): Promise<void> {
   try {
     const snap = await getDocs(collection(db, COLLECTIONS.PRODUCTS));
-    if (snap.empty && initial && initial.length > 0) {
-      console.log('[Firebase] Seeding initial product catalog to Firestore...');
+    if ((snap.empty || snap.size < initial.length) && initial && initial.length > 0) {
+      console.log(`[Firebase] Ensuring all ${initial.length} products are seeded to Firestore...`);
+      const existingIds = new Set(snap.docs.map((d) => d.id));
       for (const p of initial) {
-        await syncProductToFirestore(p);
+        if (!existingIds.has(p.id)) {
+          await syncProductToFirestore(p);
+        }
       }
-      console.log('[Firebase] Successfully seeded product catalog to Firestore.');
+      console.log('[Firebase] Successfully synchronized product catalog to Firestore.');
     }
   } catch (err) {
     console.warn('[Firebase] seedInitialProductsIfEmpty warning:', err);
@@ -304,12 +307,15 @@ export function subscribeToCategories(
 export async function seedInitialCategoriesIfEmpty(initial: ManagedCategory[]): Promise<void> {
   try {
     const snap = await getDocs(collection(db, COLLECTIONS.CATEGORIES));
-    if (snap.empty && initial && initial.length > 0) {
-      console.log('[Firebase] Seeding initial categories to Firestore...');
+    if ((snap.empty || snap.size < initial.length) && initial && initial.length > 0) {
+      console.log(`[Firebase] Ensuring all ${initial.length} categories are seeded to Firestore...`);
+      const existingIds = new Set(snap.docs.map((d) => d.id));
       for (const c of initial) {
-        await syncCategoryToFirestore(c);
+        if (!existingIds.has(c.id)) {
+          await syncCategoryToFirestore(c);
+        }
       }
-      console.log('[Firebase] Successfully seeded categories to Firestore.');
+      console.log('[Firebase] Successfully synchronized categories to Firestore.');
     }
   } catch (err) {
     console.warn('[Firebase] seedInitialCategoriesIfEmpty warning:', err);

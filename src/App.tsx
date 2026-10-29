@@ -1752,7 +1752,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3">
               {/* Fresh Products with dual windows */}
               <button
                 type="button"
@@ -1896,6 +1896,56 @@ export default function App() {
                   </p>
                 </div>
                 <span className="text-[11px] font-bold text-purple-800 mt-2 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                  {language === 'en' ? 'Explore' : 'Terokai'} →
+                </span>
+              </button>
+
+              {/* Bakery & Breads */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('bakery');
+                  setSelectedSubCategory('all');
+                }}
+                className="p-3.5 rounded-2xl bg-gradient-to-br from-yellow-50 to-amber-100/70 border border-yellow-200 text-left hover:shadow-md hover:border-yellow-400 transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg mb-2 shadow-xs group-hover:scale-105 transition-transform">
+                    🍞
+                  </div>
+                  <h3 className="font-bold text-xs text-yellow-950 leading-tight">
+                    {t.bakery}
+                  </h3>
+                  <p className="text-[10px] text-yellow-800 mt-1 line-clamp-2">
+                    {language === 'en' ? 'Gardenia, Croissants, Buns' : 'Roti Gardenia & Croissant'}
+                  </p>
+                </div>
+                <span className="text-[11px] font-bold text-yellow-800 mt-2 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                  {language === 'en' ? 'Explore' : 'Terokai'} →
+                </span>
+              </button>
+
+              {/* Personal Care */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('personal_care');
+                  setSelectedSubCategory('all');
+                }}
+                className="p-3.5 rounded-2xl bg-gradient-to-br from-teal-50 to-emerald-100/70 border border-teal-200 text-left hover:shadow-md hover:border-teal-400 transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg mb-2 shadow-xs group-hover:scale-105 transition-transform">
+                    🧴
+                  </div>
+                  <h3 className="font-bold text-xs text-teal-950 leading-tight">
+                    {t.personalCare}
+                  </h3>
+                  <p className="text-[10px] text-teal-800 mt-1 line-clamp-2">
+                    {language === 'en' ? 'Body Wash, Shampoo, Oral Care' : 'Mandian Badan, Darlie, Syampu'}
+                  </p>
+                </div>
+                <span className="text-[11px] font-bold text-teal-800 mt-2 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
                   {language === 'en' ? 'Explore' : 'Terokai'} →
                 </span>
               </button>

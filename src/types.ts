@@ -7,7 +7,9 @@ export type MainCategory =
   | 'snacks_and_drinks'
   | 'meats'
   | 'cleaning_products'
-  | 'pet_foods';
+  | 'pet_foods'
+  | 'bakery'
+  | 'personal_care';
 
 export type SubCategory =
   // Fresh Products & Groceries sub-items
@@ -33,7 +35,14 @@ export type SubCategory =
   // Pet Foods
   | 'cat_food'
   | 'dog_food'
-  | 'pet_hygiene';
+  | 'pet_hygiene'
+  // Bakery & Breads
+  | 'breads'
+  | 'pastries'
+  // Personal Care
+  | 'bath_body'
+  | 'oral_care'
+  | 'hair_care';
 
 // Dynamic Product Model for centralized daily pricing & stock management (Firebase-ready)
 export interface ProductModel {

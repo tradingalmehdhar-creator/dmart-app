@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   X,
   Check,
-  LayoutGrid
+  LayoutGrid,
+  Croissant
 } from 'lucide-react';
 import { MainCategory, SubCategory, Language } from '../types';
 import { translations, mainCategoryConfig } from '../data/translations';
@@ -143,6 +144,20 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
       icon: Dog,
       desc: isEn ? 'Nutritious cat & dog foods, treats & care' : 'Makanan kucing & anjing, snek & penjagaan',
       color: 'violet',
+    },
+    {
+      id: 'bakery',
+      name: t.bakery,
+      icon: Croissant,
+      desc: isEn ? 'Daily fresh sliced bread, rolls & croissants' : 'Roti putih Gardenia, croissant & bun segar',
+      color: 'amber',
+    },
+    {
+      id: 'personal_care',
+      name: t.personalCare,
+      icon: Heart,
+      desc: isEn ? 'Body wash, Darlie, shampoo & personal care' : 'Mandian badan, Darlie, syampu & penjagaan diri',
+      color: 'teal',
     },
   ];
 

@@ -14,6 +14,8 @@ export const translations = {
     meatsCategory: 'Fresh Meats & Seafood',
     cleaningProducts: 'Cleaning Products',
     petFoods: 'Pet Foods & Care',
+    bakery: 'Fresh Bakery & Breads',
+    personalCare: 'Personal Care & Hygiene',
 
     // Dual Window Labels for Fresh Products
     dualWindowsTitle: 'Fresh Products Department',
@@ -196,6 +198,8 @@ export const translations = {
     meatsCategory: 'Daging & Makanan Laut',
     cleaningProducts: 'Produk Pembersihan',
     petFoods: 'Makanan & Penjagaan Haiwan',
+    bakery: 'Roti & Bakeri Segar',
+    personalCare: 'Penjagaan Diri & Kebersihan',
 
     // Dual Window Labels for Fresh Products
     dualWindowsTitle: 'Jabatan Produk Segar',
@@ -466,6 +470,31 @@ export const mainCategoryConfig: Record<
       { id: 'cat_food', en: '🐱 Cat Food & Treats', ms: '🐱 Makanan & Snek Kucing', icon: 'Cat' },
       { id: 'dog_food', en: '🐶 Dog Food', ms: '🐶 Makanan Anjing', icon: 'Dog' },
       { id: 'pet_hygiene', en: '🐾 Cat Litter & Hygiene', ms: '🐾 Pasir Kucing & Kebersihan', icon: 'Sparkles' }
+    ]
+  },
+  bakery: {
+    en: 'Fresh Bakery & Breads',
+    ms: 'Roti & Bakeri Segar',
+    icon: 'Croissant',
+    color: 'yellow',
+    descriptionEn: 'Daily baked wholemeal bread, buns, croissants & cakes',
+    descriptionMs: 'Roti Gardenia, roti bun segar, croissant & kek harian',
+    subCategories: [
+      { id: 'breads', en: '🍞 Sliced Breads & Loaves', ms: '🍞 Roti Buku & Keping', icon: 'Wheat' },
+      { id: 'pastries', en: '🥐 Buns, Rolls & Pastries', ms: '🥐 Roti Bun & Pastri', icon: 'Coffee' }
+    ]
+  },
+  personal_care: {
+    en: 'Personal Care & Hygiene',
+    ms: 'Penjagaan Diri & Kebersihan',
+    icon: 'Sparkles',
+    color: 'teal',
+    descriptionEn: 'Body wash, shampoo, toothpastes, skincare & personal hygiene',
+    descriptionMs: 'Mandian badan, syampu, ubat gigi, penjagaan kulit & diri',
+    subCategories: [
+      { id: 'bath_body', en: '🧴 Body Wash & Soaps', ms: '🧴 Mandian Badan & Sabun', icon: 'Sparkles' },
+      { id: 'oral_care', en: '🪥 Oral & Dental Care', ms: '🪥 Penjagaan Gigi & Mulut', icon: 'Shield' },
+      { id: 'hair_care', en: '💆 Shampoo & Hair Care', ms: '💆 Syampu & Rambut', icon: 'Heart' }
     ]
   }
 };
